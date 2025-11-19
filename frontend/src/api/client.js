@@ -1,6 +1,22 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// Определение URL бэкенда в зависимости от окружения
+const getApiUrl = () => {
+  // Если задана переменная окружения - используем её
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // Если production (собранное приложение на Timeweb)
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://takumihiji18-deply-41b3.twc1.net';
+  }
+  
+  // Для разработки используем localhost
+  return 'http://localhost:8000';
+};
+
+const API_URL = getApiUrl();
 
 const api = axios.create({
   baseURL: API_URL,
