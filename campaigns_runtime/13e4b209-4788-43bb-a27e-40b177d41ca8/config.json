@@ -1,0 +1,49 @@
+{
+  "WORK_FOLDER": "D:\\cursour project\\TGRESP\\campaigns_runtime\\13e4b209-4788-43bb-a27e-40b177d41ca8\\data",
+  "PROCESSED_CLIENTS": "D:\\cursour project\\TGRESP\\campaigns_runtime\\13e4b209-4788-43bb-a27e-40b177d41ca8\\processed_clients.txt",
+  "PROJECT_NAME": "польза",
+  "OPENAI": {
+    "API_KEY": "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",
+    "MODEL": "gpt-5-mini",
+    "PROXY": "http://VtVmt51R:7GnJr2Yb@154.81.199.122:63310",
+    "SYSTEM_TXT": "D:\\cursour project\\TGRESP\\campaigns_runtime\\13e4b209-4788-43bb-a27e-40b177d41ca8\\prompt.txt",
+    "TRIGGER_PHRASES": {
+      "POSITIVE": "Отлично, рад, что смог вас заинтересовать",
+      "NEGATIVE": "Вижу, что не смог вас заинтересовать"
+    },
+    "TARGET_CHATS": {
+      "POSITIVE": "@nerkhov",
+      "NEGATIVE": "@nerkhov"
+    },
+    "USE_FALLBACK_ON_OPENAI_FAIL": false,
+    "FALLBACK_TEXT": ""
+  },
+  "TELEGRAM_FORWARD_LIMIT": 5,
+  "REPLY_ONLY_IF_PREVIOUSLY_WROTE": true,
+  "TELEGRAM_HISTORY_LIMIT": 20,
+  "PRE_READ_DELAY_RANGE": [
+    5.0,
+    10.0
+  ],
+  "READ_REPLY_DELAY_RANGE": [
+    5.0,
+    10.0
+  ],
+  "ACCOUNT_LOOP_DELAY_RANGE": [
+    60.0,
+    60.0
+  ],
+  "CHECK_NEW_MSG_INTERVAL_RANGE": [
+    5.0,
+    5.0
+  ],
+  "DIALOG_WAIT_WINDOW_RANGE": [
+    30.0,
+    30.0
+  ],
+  "SLEEP_PERIODS": [
+    "20:00-08:00",
+    "14:00-14:30"
+  ],
+  "TIMEZONE_OFFSET": 3
+}

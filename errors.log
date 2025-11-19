@@ -1,0 +1,435 @@
+[2025-11-07 08:58:45] 193456449: poll_client error: TimeoutError('Request timed out')
+[2025-11-07 09:01:45] 193456456: poll_client error: TimeoutError('Request timed out')
+[2025-11-07 09:08:32] 191676744: poll_client error: TimeoutError('Request timed out')
+[2025-11-07 09:11:33] 193456447: poll_client error: TimeoutError('Request timed out')
+[2025-11-07 09:14:32] 193456449: poll_client error: TimeoutError('Request timed out')
+[2025-11-07 09:17:34] 193456456: poll_client error: TimeoutError('Request timed out')
+[2025-11-07 10:08:30] 193456449: poll_client error: TimeoutError('Request timed out')
+[2025-11-07 10:13:32] 193456456: poll_client error: TimeoutError('Request timed out')
+[2025-11-07 10:33:42] 193815944: poll_client error: TimeoutError('Request timed out')
+[2025-11-07 10:42:43] 193456456: poll_client error: TimeoutError('Request timed out')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n9ecf2591 d261e652 a2a39b75 2273e0e6 57859524 24b8b7aa')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n470b0004 bd877db5 908bc5f7 e4d01885 63faa678')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\na767bad9 7f9939b4 ce81fc26 40e5e32b 9870d6e2')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n0b8d52f5 c95448f9 479655e6 ad39440f ba98a87d d107431a')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n17982a2b 5a0b7637 b716a9d0 bdaa8f9e 5287cb26')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n4158af5f 46a53cad 54260b44 363e09b1 77f0d68e')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n11157aa6 d14386d9 f26fdd82 2f3d8163 325dc7f7')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n0d8f4f4a 0911781a 16fa6704 9ebb4bb6 d5df12ad')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nbcfdbea0 d7057691 922f2572 fa5b808b 4d3bbc17 28290214')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nb8082de5 42350d40 7319c3e9 ffad4bbd 37ad5a85 de61a9ca')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n1330c23c aa29cd48 f7894cc4 da17276f 0b4020ef f7dd693f')
+[2025-11-07 10:49:41] 193456447: poll_client error: TimeoutError('Request timed out')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n83365798 590a4401 8b8b8f2e dff01390')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n72edbddc 3c543369 3da54cce 4572fb5b')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\ndd1704ca d1f041f1 505a8a87 2656cad5')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n57587bb8 de321711 9e0695fd f142ce3e')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n02b38d83 6d79c5e9 6c98354f 9770b6a9')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nd809ecaf 6efcf2c3 a05e8229 c627476f')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nd4e2ae5a 4ef808a8 401e9359 a9fbde54')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nfdaa46a6 bd00d6b6 a84c2d8e a13942a3')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n0f39c726 c81431e8 dda9343d a12cfb15')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n6ccb295a 0e8a9cb3 eac2e455')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\ncbad6841 64f2f88c f6f330a4')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n7850a538 4e04c44e 2c5866f9 031a651e fe83af35')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n388393a4 1974315a 1a43e455 6469e186 7be621ef')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\na13ee989 f0a3af93 8e338d26 ab47e51b 91a09cc1')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n6ea8dc74 85e96be2 2421495c 81a6e010 d083218f 1d7cac3c')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n4aadad27 dc754ec9 df56596b bf94b769 c793a5ab ac5987e2')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\na57506d3 0208804b 9d45e65e 6a39b37d f36b8523 f672fbfc')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nc7ed9d5b 4bc06283 4b12f343 766f8607')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nd9e5171e ee0c4e5b 1046b943 56004808 11672860 45633930')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nbf0a6ab6 e0c60974 12bbd3dd c41afbe5 348388fd bafbfac8')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nb3fb421b 64487cd6 38d34d3e 2d5a6ac6')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n157cde3b a942208c 414328fa 4df512ca')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nd1053f31 5b053cfc 9d0d1aa2 fe7d23b9')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n5bfd1bfb 714e8d72 82c85ce9 87d97e06 fe8d74ec 5f88294d')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n199c7f75 8ec31b92 4534c676 a9e56ac5 2b42f045 52c3fafc')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nd2229f9e 7e384012 8d517295 4dcf372e d4573bb5 c48aee8d')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n1042bbbc 414ccc23 0c0ad40d 03b968ee bf64415a b6eebd5d')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\na19f1306 51b9ef83 109930d2')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nb70303b7 ae4eb6d8 b8513064 073f5dc4 3430afa2')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\na003761b 18641879 b682f1c3 7b25c605 3cfcc19f 09f7c512')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n782d7fa9 cf703e6f 3518b5db 935e7ab2 b09e1362')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\ndac1056d d9de9cf2 9067e69f')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n62750347 f876ffe3 56c52144')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n940051b7 d08718b1 51054fb7 91f07ef5')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n413216a4 c9d75ee3 51778b21')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n63c1b01d 2ae28c64 a153efdf 89a95076 8c46c470')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n33de0cfc 49b26875 feed369a')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n70a41cc1 b287f176 f81aff4f d67c565c e0265fe6')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n8cc6f6a8 074776bf 13d17bd5 994a5883 6b57452a 96384b38')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\ne2dcea86 74cde5cf 8d70ed8c f1515143 3fc4c297 5ef17888')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nd2e9ba1b b8dd4144 a2bacc73 42978255')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nb31b4298 bdb246b8 59524309 2566207f ec423b61 ec1e881e')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\naac4d129 dc0c005e 1367d36e 37cdbc4b')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n0bcf70d0 57703d2c cd152053')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\ndd8ecfb3 3013e3b9 8b1f8433 276aca83 f5f23930 5bd41c31')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n952b217e 7557503d 781e6590 be1910f9 6a4f7574 454b7d52')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nfd6f7b02 663fb24a f550e937 c4a03cff 7c50e34a')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n176676f1 43cfd6d7 c1ec317a c2b5924d f1e86806 0ea94204')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n506f25a1 e8acba44 9bdcf5f2')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n70f13434 4a8c86cc c92393e2 61a70fb7 b2058a86 1c005b9c')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n60aa83a6 d8de1369 2a25ab6d 2efefbee 5bdc8b85 36d8a29d')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\ncc7dc64d 9626f135 6252777e 3a7a7106')
+[2025-11-07 10:56:34] 193815976: poll_client error: TimeoutError('Request timed out')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n2fd54b9a 0db00467 4a607f25 f8f502ec')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nf4ffc281 c53ff3e4 b4e5477e')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\na64cfd6a b635c7be 9c754b45 b21897d2')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n72355cb4 35258b39 dbd05eed 00658bbf')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n60619adf 67008e5a 7721ba27 4e08a25a cca9ee4d c2b5b996')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n36a71424 9039565a 8fa1f9d4 5b64ab23')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nf3a3fee0 3d147450 9695b860 6f58de25')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\na1e11881 95bd8b68 fbfda568 987db2b6 3b94a86c 8f41e2fe')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n293156ee 21daad45 82abb8b4')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n6c7fc0ba 3c0764e5 69a20bdd e813be94')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nfd43005b 17526a0d f552a4af 9ac1afd2')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n66d21a56 d9be82ce 31ee73de 557b5681')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n17f113bb b7357995 175f20e6 222043c0')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nb46a787e e603a142 79932122 af353f4e')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n1cbe2614 ac963f6d d98960f7 e3e1faa0 c352501b 34c33ece')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nd18820e5 02c34d6e 3ca10ffb 12c17645')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n8de5226b 4d59c010 38a67ffa 25b382e4 050cfb44 4db516c1')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n787317b3 e8362948 b3486504')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n903c4161 faeb9c0c bf5c54ed a9ec448d')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nab8f4238 a1cbaac4 eee22e76 869a4247')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n68342560 7f38e4b0 52aa1fa2 d4ee624f')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nf6c60abb a0061afc af3a513e 64217462 d1711231 9b1f8149')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n57ddacdb 2256ca9d 1b4437a4 0ec34787')
+[2025-11-07 11:02:36] 191676692: poll_client error: NameError("name 'POLL_TIMEOUT' is not defined")
+[2025-11-07 11:02:41] 191676744: poll_client error: NameError("name 'POLL_TIMEOUT' is not defined")
+[2025-11-07 11:02:44] 193456447: poll_client error: NameError("name 'POLL_TIMEOUT' is not defined")
+[2025-11-07 11:02:49] 193456449: poll_client error: NameError("name 'POLL_TIMEOUT' is not defined")
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n382aa606 2d1834bb 494ba09a 687af507 e48a3b2c')
+[2025-11-07 11:06:21] 191676692: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n4d9e2741 8d810108 b7a77129 fd5cd4a0 19f4e50e')
+[2025-11-07 11:07:06] 191676692: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\ne0f8fcc6 66a3c821 953c8fae e173eb07 cfd17f3f')
+[2025-11-07 11:07:56] 191676692: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n58cd4a5c 9319dc18 5c9e5087 69bbda74 dbc2641d c9d94bb0')
+[2025-11-07 11:08:14] 193456447: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n4069b65c 62749262 5ec07cf3')
+[2025-11-07 11:08:25] 193456449: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n340f26f7 cea776e6 a425cb39 fb559843')
+[2025-11-07 11:08:54] 193815991: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n9b458f46 bd0cfb86 2489da60 7f8f8e6f 9ac74cb5')
+[2025-11-07 11:09:06] 191676692: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n25ebd381 fc3ae02a 58d2486f 8d6282fc aad3280f 51291c99')
+[2025-11-07 11:09:24] 193456447: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n9907391d 59b0776a 5b9c5060 35470209')
+[2025-11-07 11:09:36] 193456449: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n53353f16 7be57b04 e2617ad7')
+[2025-11-07 11:09:47] 193456456: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n1d2facfa d3794b5f c7b35250')
+[2025-11-07 11:10:01] 193815944: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n50391173 c99cb2c1 24399a67 6b315dc1')
+[2025-11-07 11:10:13] 193815976: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n4bf7c807 97412e0e 3152d0e0')
+[2025-11-07 11:10:25] 193815991: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\neef6b331 e0969a71 2ec96c98 90f10cff 12d50e95 a02e92c1')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n368aaa2b af9facc1 0c046af9 b6aaf3ee cbc37c43')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n8df12d94 a66f5424 7c4e0486 6d4bfe7f bc59ae36')
+[2025-11-07 11:10:36] 191676692: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nf035a0b9 801bdd52 fde5ca2d ad8dfb81')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n44066107 d7523dfe 368938c6 03ae1c90 5d59c956 0d3b5c35')
+[2025-11-07 11:10:48] 191676744: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n38c26048 f59ad403 2bc370c7 1e29353c 4e93a894 0f1d404c')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n662afcf6 bf60b9a9 1f34306a 02397e22 8d62e913 b26464e5')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nebf82cc2 79b802e4 38e79f67 9a69715c')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n78a235f5 086dedbe b3352515 3a417ce1 a2f3ea32 5d440ede')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nf9fecc44 4cbb65a4 9fccd734')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n0207be66 c5bf13d6 51b31ac6 510276f1 1a9dc95d')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\na7cf0242 c72e8d6c a9da79d5 0cd05bc2 c27c290d 9b81afa9')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n362409c5 405c4684 0e1de53d')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\ne73fe716 35964507 10ddea08 a97eed73')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nf4f50de6 f4b2ca83 057eccb7 5fde233e a2d02e16')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n46e34d3b 4419dd79 8f564e60 752dca52 bfe992f8 52d7bb5a')
+[2025-11-07 11:11:02] 193456447: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n72db74a1 b3269bf7 100eaedb b53b88d1')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\ncb163de8 f34e669d a236f5f9')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\na01ab0d6 6feede4f 7481adff c8ce32b2 16217f8f b96c2795')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n1457456e c9b9f9e5 b2c96de6 d6172bcb')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n803b584a 0c04b816 b7000e68')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n2da67f56 5cb28b78 b2932486 62704952')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n95fb3960 16059781 d746c3bd')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\naf95f487 596a0b91 1cf78147 d9804a2e')
+[2025-11-07 11:11:13] 193456449: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nf00370ee 8e35276a 7cb6f6b9 ceaa2251 630e1d01 6fa59a48')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\na6f31745 ba885937 f8555c53 caec140f f3718237')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nf5540d01 6fe9a136 ec1f39e7')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n3d07d1d5 54c30b9e 86f89f3f 68347006 9c8df95d d5f4f28b')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nf786993f 91c57b2f 0b5f4938')
+[2025-11-07 11:11:27] 193456456: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nf4d58cb2 330fc90b 44b38783 b9dd10c9')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n67e0d603 62288f02 33ab2c2a 3a18ec5a')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n1f6943ab f3755eb6 37aa87e7')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n97e77d6b cfba6be1 c195762e 6e61c24a 536667ff f0a6ddef')
+[2025-11-07 11:11:39] 193815944: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nf29b6a04 e3730f24 d76c6b7d 2677802d 461ddd26 9a819fed')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nd874ff10 cde7be6b d061a998 fbbefab0 73ac5c80 70f2bd46')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n8e8bb3c6 60cede9f f4c9edba')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nea67de20 a946232f 6946be6b 450e2be3 bc1b08ff 79ddd967')
+[2025-11-07 11:11:53] 193815976: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\na4150249 5f2b4a5e ae4738b3')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n936e6222 3b2a67da 0c876d1a 038f2c25')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n245b60da ee2f3e24 afe8f9fd 11db03be 292b8d94 3510f9ec')
+[2025-11-07 11:12:06] 193815991: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nfd2f8107 afc072d7 64e5fc1a 8b32d6c9 13e5bce6 2e64adeb')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n594459f4 1a370fa1 012f5910')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nca62ebdd 8fe74f75 5ebedc4a 3157e7bb 7a1b9feb')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nd044c430 74812511 ce43495c 87aef0d9')
+[2025-11-07 11:12:17] 191676692: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\na7d2f54e 6989a1f2 52637cf1 e8028d08 66f29adc 898dd584')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nc715b2af b7d89cd0 27c92450 c0aef549 e693384e')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\ncb3f9a1d eab3d76e 40edf53e')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nb5aa2fb7 f26a702b 1e737d23')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n11c59d99 3d65310e 43c0ccf4 ab5b7e55 148b6fa0 78fbe398')
+[2025-11-07 11:12:30] 191676744: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nc69de7fc 130f3223 f093eb2d')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n4556d387 2eb7498f 883337ba ff6e4c4c ad7e65ac 3f8a5191')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n1761aac3 11b175f4 637cb7c1 17e6921c')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nff054a6c 35da372a f8d3af2e 5320be63 8d2419a2 ae12a09d')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nd32de2e9 767fec48 a43ff960 aab391aa')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\na6f22ca8 2d257725 6ba755dd f5c7fd37 4efc1cea 79113b28')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nae981298 50c0dca0 2d6fd078 3a7aa65e 7e5dc47f')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n555750da 23ef9521 ca8805ad')
+[2025-11-07 11:12:44] 193456447: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nc9fd0144 f23bf7b2 3fc0d15b')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\ne09ecbb3 434bedb3 49c02576')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n4d8fabf1 227a5ce5 7506e0a8 d8128237 3758e5f5 a9adf9ab')
+[2025-11-07 11:12:57] 193456449: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\ne61c9021 904134c3 cfa1fdc0')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n096c9cc3 17561d92 ec7141cf 44378de5 6c4fc6dd 10eeb805')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n2f868c07 7e01ad75 4b588259')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n52570f85 976347e7 fb561cd7 443a4908 b29e0d5a')
+[2025-11-07 11:13:09] 193456456: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\ne14f93ca 209b36c7 7877b9d7 d9d82c30 913cdbb1 3e883927')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\neb987b3a 7928c771 6009e800 edcab58a 7a12e1f2')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n6a64cddf b866e08b c140fc01 829caa3d 194a072b')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n8e193e01 6e28d5a3 d9189249 bb9147d0')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n3693418c 3b96f44e cb03b8ff 9e065747 0ada0d2c')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nd2284cbc eafaa081 f51e6bbd')
+[2025-11-07 11:13:21] 193815944: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n431dee94 df7157cf 1af2f2d7 764379aa')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n9fee8102 031ad8b0 a2891d2f 8104cfc6 d89c0227')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nfcf0a2db bdf211e2 f63dbf11 f35a67bc 98ecbaa2 65dcc7da')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\ne7c18e5c aa42e63b 69f5ecca 6a8397ec e13a9244 20ae40ca')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nb571e204 c6983f90 510a39d0 0cdba498 8fc04633')
+[2025-11-07 11:13:33] 193815976: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n472cd8a8 4d02d917 a4c569b6 4de51c94 86c01ea0 80dd40dd')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n0f52db77 96011b01 6ddb99ed 6f41024f 0ea17da7')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n08942a95 563a7285 eaf6bc7f 58a994d3')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nafae60ed cec4cec5 5b386345 2a0166cd')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\ne058ce61 79702c47 0f0d73d1 4a13f54a e2da64af 9c59c711')
+[2025-11-07 11:13:45] 193815991: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n55bd8668 246ea146 5eb1a95f 93ca6de2 dc096d84')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nf1d7e76d 797d24d9 c89807cb 108857a5 5059ebf4')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n23648310 a09b21e5 d13274b2 f3802895 4310c36a')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n77ce92eb 36dae665 fbc29b05 08997ca9 9115c7d3')
+[2025-11-07 11:13:58] 191676692: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nb06bebf8 1aae6b06 dba84c2d f0dc8b2d')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n950d1ba9 43933fab d6f62688 533758bc 8b50cba4')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n2503a74d c739dae4 c80e369c ca73c9eb 00d7151c')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n1e27bf3f d35ceebe a8ae4969 5d56c3f3')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n82860aeb 0f397c10 cc2d9aeb 661569c3 1efae83c')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n870b1de4 2f024347 e6ba5094')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nf4a1ec42 61329fa7 98f63182 e2f230ef')
+[2025-11-07 11:14:12] 191676744: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n58c1f804 7d36face 5e200a46 33cf1ae3 fe1de4f5 5396262b')
+[loop handler] ValueError('The server sent an unknown constructor: 0x7a800e0a\n001ec679 297a646b 26ea1ae1 935525e9')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nc72a0572 cd2d9330 fb775f47 6ffde7a5 7408c8b2 1a3fbf4e')
+[2025-11-07 11:14:23] 193456447: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nef76a6e0 f7ffd5a5 627112e5 c7858c88 b3d509c0 90e55671')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n4a684d28 1adc6e69 381c009d a66636a1')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n6983b289 341e726b 49ada0de')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n8e1d5fee 2c92ae81 72304e99 3b31586d d7269f02')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n15e1b0d1 84319af8 0d055ba3 c8e3db87')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n7430df06 b24d73be e32f9e45')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n60b8b3a8 40486bce db3c9d7c 25e1a169 5cb256ee')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n6bc46e9b 75e05006 9e13fc60 e3049cb6 8b872e93')
+[2025-11-07 11:14:37] 193456449: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nd007f1c0 84a53ab1 a60627cd 55980569 dec38a90')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\ncc744e9a 43e3daf0 81e0526d 6e2109cf bdb647f6 80a4c80d')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nb445a909 5027a220 097799f5')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\ne9e42962 d3a30c42 9e05762d 269c19fb 7000e657')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nec7f5fc2 f6552558 978c9ef4 347ee05d b3514830 786f4940')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\n37640a75 e4cc66d2 912f05fd 46610634 ec49a463 a429cd9e')
+[loop handler] ValueError('The server sent an unknown constructor: 0x7adf2420\n15e7df14 c4a52103 d88f90bf')
+[2025-11-07 11:14:48] 193456456: poll timeout, skipping this turn
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nfd351b30 3709baa1 262b38b2 58b59aef a39c7aa2 ab41e789')
+[loop handler] ValueError('The server sent an unknown constructor: 0x9815cec8\nb5a08490 3c5e9736 5549fd4d 14283c27 2d428ed0')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n533a22a2 31a81b44 93325d0c ebe5d9d8 b85384e4')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n9f3d0cf6 57eedce4 a49f049b 3fbcf8db 44003070 25ab7cfc')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n3b9b6632 cb3784ce f33683e7 e31dcfcc 5da15982 2287b79f')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nfe92216f 5a3d9ab0 48525fa7 6ea3418f bbf88007 050410f8')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n8af0b3b5 d48dac98 c7bfbb4c 486aff23 3336fb80 03f96aa6')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nb2d77f28 b0b06a32 fc4c4bcd 2fe8664b 812f6625 9be5d83d')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n525ce209 30e70013 9dca9fa9 3710255c a3698d20 237b29d0')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\ne84ec38c 4ef27d1d a3d9b786 8a231f29 b21287d1 215edd7b')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n6c24e058 bc02a9a2 b79e82dc 1eea03a2 0dac70ca e2c2e1aa')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n156d543b 8678607e b1a15956 053796dc b3894c0d')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n716ee193 717f9b14 8eed7252 f0eb7812 799f9db0 32c28647')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nfee30802 70452675 1ada1ca4 640aa37c 3fe1e48d 1c361652')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\ne6114aa6 e763803d 1217fe57 66138b18 e9889ec9 2ba7a483')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n9ede3940 9c163c91 7fd73372 6dc75a2e acad2270 0b843bec')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n0f719e10 d148a285 21e3993f')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n7e28f694 8de4b1c3 78c51fcf')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n962b05ae af73e732 2e98bf30 7b20cb9c 8d346b2b 155fb002')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nac6728d1 931443aa a05ebf85')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n8c303989 8e6887fa 851218d3')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\naa09d25e 454e9692 d7384edf 50017bd7 79864823 bcdecec9')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nc8686fd6 4b689235 82db85c3')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nf6f4d52a f32d4367 883d8911 33a21441 c1d05358 41c26791')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\nf8c47023 28865c78 9ec4465d ac45a520 5c7ef535 b6a7be66')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\ne6e26cd0 cb19f4f5 8795cefb e9e36cd5 93939e07 d49d8502')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n6b47c36f 9c59514b e3939893 6878f909 fdde9788 1dbb74ea')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n3963980c 3ed143ae 8b5b2be4 5f7bfb01 391117dd f2b88386')
+[loop handler] ValueError('The server sent an unknown constructor: 0x99622c0c\n27befd16 e369028a 5c690c13')
+[2025-11-07 12:56:16] 194592658: poll timeout, will retry with backoff
+[2025-11-07 13:15:15] 194453263: poll timeout, will retry with backoff
+[2025-11-07 13:15:24] 194453263: poll timeout, will retry with backoff
+[2025-11-07 14:32:24] 194453263 start error (will skip this client): NameError("name 'POLL_BACKOFF_STATE' is not defined")
+[2025-11-09 20:28:14] 194453263: history timeout for chat 7866082628
+[2025-11-09 21:15:18] [2025-11-09 21:15:18] 194453263: poll timeout, will retry with backoff
+[2025-11-09 23:05:28] 194453263: poll_client error: TypeError("handle_chat_session() missing 1 required positional argument: 'unread_hint'")
+[2025-11-09 23:10:24] 194453263: poll_client error: TypeError("handle_chat_session() missing 1 required positional argument: 'unread_hint'")
+[loop handler] Task exception was never retrieved ValueError('Peer id invalid: -1002276907120')
+[2025-11-10 00:19:14] 193815991: poll_client error: Flood('Telegram says: [420 Flood] - [420 FROZEN_METHOD_INVALID] (caused by "messages.GetStickerSet")')
+[2025-11-10 00:20:17] 193815991: poll_client error: Flood('Telegram says: [420 Flood] - [420 FROZEN_METHOD_INVALID] (caused by "messages.GetStickerSet")')
+[2025-11-12 22:39:49 MSK] Fatal error: TypeError("can't subtract offset-naive and offset-aware datetimes")
+[2025-11-12 22:40:27 MSK] Fatal error: TypeError("can't subtract offset-naive and offset-aware datetimes")
+[2025-11-12 22:46:22 MSK] Failed to parse proxy URL http://VtVmt51R:7GnJr2Yb@45.89.231.108:63758: ModuleNotFoundError("No module named 'socks'")
+[2025-11-12 22:46:22 MSK] 194453263: proxy line cannot be parsed, will run without proxy
+[2025-11-12 22:49:14 MSK] Failed to parse proxy URL http://VtVmt51R:7GnJr2Yb@45.89.231.108:63758: ModuleNotFoundError("No module named 'socks'")
+[2025-11-12 22:49:14 MSK] 194453263: proxy line cannot be parsed, will run without proxy
+[2025-11-12 22:51:52 MSK] Failed to parse proxy URL http://VtVmt51R:7GnJr2Yb@45.89.231.108:63758: ModuleNotFoundError("No module named 'socks'")
+[2025-11-12 22:51:52 MSK] 194453263: proxy line cannot be parsed, will run without proxy
+[2025-11-12 22:56:06 MSK] Failed to parse proxy URL http://VtVmt51R:7GnJr2Yb@45.89.231.108:63758: ModuleNotFoundError("No module named 'socks'")
+[2025-11-12 22:56:06 MSK] 194453263: proxy line cannot be parsed, will run without proxy
+[2025-11-12 22:56:06 MSK] Failed to parse proxy URL http://VtVmt51R:7GnJr2Yb@194.55.102.79:63416: ModuleNotFoundError("No module named 'socks'")
+[2025-11-12 22:56:06 MSK] 196444837: proxy line cannot be parsed, will run without proxy
+[2025-11-12 22:56:06 MSK] Failed to parse proxy URL http://VtVmt51R:7GnJr2Yb@185.79.136.144:64128: ModuleNotFoundError("No module named 'socks'")
+[2025-11-12 22:56:06 MSK] 196445256: proxy line cannot be parsed, will run without proxy
+[2025-11-12 22:56:06 MSK] Failed to parse proxy URL http://VtVmt51R:7GnJr2Yb@185.58.113.34:62286: ModuleNotFoundError("No module named 'socks'")
+[2025-11-12 22:56:06 MSK] 196445266: proxy line cannot be parsed, will run without proxy
+[2025-11-12 22:57:12 MSK] Failed to parse proxy URL socks5://01k9w2vxg4bd445m2vfadfsm96:lchPuRv9ipsV6olE@93.190.139.58:10179: ModuleNotFoundError("No module named 'socks'")
+[2025-11-12 22:57:12 MSK] 194453263: proxy line cannot be parsed, will run without proxy
+[2025-11-12 22:57:12 MSK] Failed to parse proxy URL socks5://01k9w2vxfx3mft90fmhkpc4wny:wUMMMtnUNK7rOUKU@93.190.139.58:12052: ModuleNotFoundError("No module named 'socks'")
+[2025-11-12 22:57:12 MSK] 196444837: proxy line cannot be parsed, will run without proxy
+[2025-11-12 22:57:12 MSK] Failed to parse proxy URL socks5://01k9w2vxfn7m3w3sajgryvc4e8:tvkjMYoDJnMkqnMn@89.39.104.79:12844: ModuleNotFoundError("No module named 'socks'")
+[2025-11-12 22:57:12 MSK] 196445256: proxy line cannot be parsed, will run without proxy
+[2025-11-12 22:57:12 MSK] Failed to parse proxy URL socks5://01k9w2vxfdesanf5w5gs5n3xhy:nqywyShbT8X7XxHN@93.190.139.58:13902: ModuleNotFoundError("No module named 'socks'")
+[2025-11-12 22:57:12 MSK] 196445266: proxy line cannot be parsed, will run without proxy
+[2025-11-13 12:17:11 MSK] Socks module not available. Install with: pip install python-socks[asyncio]
+[2025-11-13 12:17:11 MSK] 375292019907: proxy line cannot be parsed, will run without proxy
+[2025-11-13 12:17:11 MSK] 375292019907: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 12:17:11 MSK] Socks module not available. Install with: pip install python-socks[asyncio]
+[2025-11-13 12:17:11 MSK] 375292120995: proxy line cannot be parsed, will run without proxy
+[2025-11-13 12:17:11 MSK] 375292120995: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 12:17:11 MSK] Socks module not available. Install with: pip install python-socks[asyncio]
+[2025-11-13 12:17:11 MSK] 375295606345: proxy line cannot be parsed, will run without proxy
+[2025-11-13 12:17:11 MSK] 375295606345: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 12:17:11 MSK] Socks module not available. Install with: pip install python-socks[asyncio]
+[2025-11-13 12:17:11 MSK] 375295643724: proxy line cannot be parsed, will run without proxy
+[2025-11-13 12:17:11 MSK] 375295643724: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 12:17:11 MSK] Socks module not available. Install with: pip install python-socks[asyncio]
+[2025-11-13 12:17:11 MSK] 375297502548: proxy line cannot be parsed, will run without proxy
+[2025-11-13 12:17:11 MSK] 375297502548: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 12:17:11 MSK] Socks module not available. Install with: pip install python-socks[asyncio]
+[2025-11-13 12:17:11 MSK] 375298435924: proxy line cannot be parsed, will run without proxy
+[2025-11-13 12:17:11 MSK] 375298435924: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 12:17:11 MSK] Socks module not available. Install with: pip install python-socks[asyncio]
+[2025-11-13 12:17:11 MSK] 375333139759: proxy line cannot be parsed, will run without proxy
+[2025-11-13 12:17:11 MSK] 375333139759: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 12:17:11 MSK] Socks module not available. Install with: pip install python-socks[asyncio]
+[2025-11-13 12:17:11 MSK] 375333977031: proxy line cannot be parsed, will run without proxy
+[2025-11-13 12:17:11 MSK] 375333977031: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 12:17:11 MSK] Socks module not available. Install with: pip install python-socks[asyncio]
+[2025-11-13 12:17:11 MSK] 375333990369: proxy line cannot be parsed, will run without proxy
+[2025-11-13 12:17:11 MSK] 375333990369: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 12:17:11 MSK] Socks module not available. Install with: pip install python-socks[asyncio]
+[2025-11-13 12:17:11 MSK] 375338879881: proxy line cannot be parsed, will run without proxy
+[2025-11-13 12:17:11 MSK] Socks module not available. Install with: pip install python-socks[asyncio]
+[2025-11-13 12:17:11 MSK] 998950265546: proxy line cannot be parsed, will run without proxy
+[2025-11-13 12:17:11 MSK] Socks module not available. Install with: pip install python-socks[asyncio]
+[2025-11-13 12:17:11 MSK] 998951823163: proxy line cannot be parsed, will run without proxy
+[2025-11-13 12:17:11 MSK] Socks module not available. Install with: pip install python-socks[asyncio]
+[2025-11-13 12:17:11 MSK] 998990297461: proxy line cannot be parsed, will run without proxy
+[2025-11-13 12:23:51 MSK] 375292019907: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 12:44:47 MSK] 375292019907: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 12:45:48 MSK] 375292120995: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 12:45:49 MSK] 375338879881: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 12:46:44 MSK] 375338879881: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 12:46:46 MSK] 998950265546: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 12:46:50 MSK] 998951823163: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 12:46:53 MSK] 998990297461: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 12:46:53 MSK] No clients configured, exiting.
+[2025-11-13 13:02:34 MSK] 375338879881: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 13:04:42 MSK] 375338879881: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 13:12:13 MSK] 375338879881: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 13:12:13 MSK] 375338879881: traceback: Traceback (most recent call last):
+  File "D:\cursour project\TGRESP\main.py", line 924, in setup_clients
+    cl = TelegramClient(
+        session_path,
+    ...<2 lines>...
+        proxy=proxy_tuple
+    )
+  File "C:\Users\Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\telethon\client\telegrambaseclient.py", line 291, in __init__
+    session = SQLiteSession(str(session))
+  File "C:\Users\Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\telethon\sessions\sqlite.py", line 64, in __init__
+    self._dc_id, self._server_address, self._port, key, \
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self._takeout_id = tuple_
+        ^^^^^^^^^^^^^^^^
+ValueError: too many values to unpack (expected 5)
+
+[2025-11-13 13:12:15 MSK] 998950265546: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 13:12:15 MSK] 998950265546: traceback: Traceback (most recent call last):
+  File "D:\cursour project\TGRESP\main.py", line 924, in setup_clients
+    cl = TelegramClient(
+        session_path,
+    ...<2 lines>...
+        proxy=proxy_tuple
+    )
+  File "C:\Users\Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\telethon\client\telegrambaseclient.py", line 291, in __init__
+    session = SQLiteSession(str(session))
+  File "C:\Users\Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\telethon\sessions\sqlite.py", line 64, in __init__
+    self._dc_id, self._server_address, self._port, key, \
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self._takeout_id = tuple_
+        ^^^^^^^^^^^^^^^^
+ValueError: too many values to unpack (expected 5)
+
+[2025-11-13 13:12:21 MSK] 998951823163: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 13:12:21 MSK] 998951823163: traceback: Traceback (most recent call last):
+  File "D:\cursour project\TGRESP\main.py", line 924, in setup_clients
+    cl = TelegramClient(
+        session_path,
+    ...<2 lines>...
+        proxy=proxy_tuple
+    )
+  File "C:\Users\Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\telethon\client\telegrambaseclient.py", line 291, in __init__
+    session = SQLiteSession(str(session))
+  File "C:\Users\Lenovo\AppData\Local\Programs\Python\Python313\Lib\site-packages\telethon\sessions\sqlite.py", line 64, in __init__
+    self._dc_id, self._server_address, self._port, key, \
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self._takeout_id = tuple_
+        ^^^^^^^^^^^^^^^^
+ValueError: too many values to unpack (expected 5)
+
+[2025-11-13 13:24:36 MSK] 375292019907: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 13:24:38 MSK] 375292120995: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 13:28:30 MSK] 998990297461: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 13:28:30 MSK] No clients configured, exiting.
+[2025-11-13 13:29:16 MSK] 998990297461: failed to create client: ValueError('too many values to unpack (expected 5)')
+[2025-11-13 13:29:16 MSK] No clients configured, exiting.
+[2025-11-13 14:05:37 MSK] No clients configured, exiting.
+[2025-11-13 14:39:51 MSK] Failed to parse sleep period '20:00-08:00,13:00-14:30': too many values to unpack (expected 2)
+[2025-11-13 14:39:57 MSK] 375330578983: fatal error while processing: ConnectionError('Connection to Telegram failed 5 time(s)')
+[2025-11-13 14:45:10 MSK] Failed to parse sleep period '20:00-08:00,13:00-14:30': too many values to unpack (expected 2)
+[2025-11-13 14:46:04 MSK] Failed to parse sleep period '20:00-08:00, 13:00-14:30': too many values to unpack (expected 2)
+[2025-11-13 14:48:31 MSK] Failed to parse sleep period '20:00-08:00, 13:00-14:30': too many values to unpack (expected 2)
+[2025-11-14 16:16:03 MSK] Proxy check failed for 93.190.139.58:10179: ClientHttpProxyError(RequestInfo(url=URL('https://api.telegram.org'), method='CONNECT', headers=<CIMultiDictProxy('Host': 'api.telegram.org', 'Accept': '*/*', 'Accept-Encoding': 'gzip, deflate', 'User-Agent': 'Python/3.13 aiohttp/3.13.2', 'Proxy-Authorization': 'Basic MDFrOXcydnhnNGJkNDQ1bWZzbTk2OmxjaFB1UnY5aTZvbEU=')>, real_url=URL('http://01k9w2vxg4bd445mfsm96:lchPuRv9i6olE@93.190.139.58:10179')), (), status=407, message='Proxy Authentication Required', headers=<CIMultiDictProxy('Date': 'Fri, 14 Nov 2025 13:16:03 GMT', 'Content-Length': '44', 'Content-Type': 'text/plain; charset=utf-8')>)
+[2025-11-14 16:16:03 MSK] 194453263: proxy check failed - account will skip actions until proxy is available
+[2025-11-14 16:16:03 MSK] Proxy check failed for 93.190.139.58:10179: ClientHttpProxyError(RequestInfo(url=URL('https://api.telegram.org'), method='CONNECT', headers=<CIMultiDictProxy('Host': 'api.telegram.org', 'Accept': '*/*', 'Accept-Encoding': 'gzip, deflate', 'User-Agent': 'Python/3.13 aiohttp/3.13.2', 'Proxy-Authorization': 'Basic MDFrOXcydnhnNGJkNDQ1bWZzbTk2OmxjaFB1UnY5aTZvbEU=')>, real_url=URL('http://01k9w2vxg4bd445mfsm96:lchPuRv9i6olE@93.190.139.58:10179')), (), status=407, message='Proxy Authentication Required', headers=<CIMultiDictProxy('Date': 'Fri, 14 Nov 2025 13:16:03 GMT', 'Content-Length': '44', 'Content-Type': 'text/plain; charset=utf-8')>)
+[2025-11-14 16:16:03 MSK] 194453263: proxy still unavailable - skipping this round

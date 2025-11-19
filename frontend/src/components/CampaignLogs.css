@@ -1,0 +1,148 @@
+.logs-container {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 600px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.logs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background: #f7fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.logs-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.logs-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.auto-scroll-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: #4a5568;
+  cursor: pointer;
+  user-select: none;
+}
+
+.auto-scroll-toggle input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-badge.running {
+  background: #c6f6d5;
+  color: #22543d;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.logs-content {
+  flex: 1;
+  overflow-y: auto;
+  background: #1a202c;
+  color: #e2e8f0;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.logs-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #718096;
+  font-size: 14px;
+}
+
+.logs-list {
+  padding: 15px;
+}
+
+.log-line {
+  padding: 4px 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-left: 3px solid transparent;
+  padding-left: 10px;
+  margin-left: -10px;
+}
+
+.log-line.log-error {
+  color: #fc8181;
+  border-left-color: #fc8181;
+  background: rgba(252, 129, 129, 0.1);
+}
+
+.log-line.log-warning {
+  color: #f6ad55;
+  border-left-color: #f6ad55;
+  background: rgba(246, 173, 85, 0.1);
+}
+
+.log-line.log-info {
+  color: #68d391;
+}
+
+.log-line.log-separator {
+  color: #4a5568;
+  margin: 8px 0;
+}
+
+.logs-footer {
+  padding: 10px 20px;
+  background: #f7fafc;
+  border-top: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.logs-footer small {
+  color: #718096;
+  font-size: 12px;
+}
+
+/* Scrollbar styling */
+.logs-content::-webkit-scrollbar {
+  width: 10px;
+}
+
+.logs-content::-webkit-scrollbar-track {
+  background: #2d3748;
+}
+
+.logs-content::-webkit-scrollbar-thumb {
+  background: #4a5568;
+  border-radius: 5px;
+}
+
+.logs-content::-webkit-scrollbar-thumb:hover {
+  background: #718096;
+}
+
+

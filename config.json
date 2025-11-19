@@ -1,0 +1,31 @@
+{
+  "WORK_FOLDER": "data",
+  "PROCESSED_CLIENTS": "processed_clients.txt",
+  "OPENAI": {
+    "API_KEY": "",
+    "MODEL": "gpt-5-mini",
+    "PROXY": "http://6TRUT9Vb:F7hbkyvc@195.133.57.43:62672",
+    "SYSTEM_TXT": "prompt.txt",
+    "TRIGGER_PHRASES": {
+      "POSITIVE": "Отлично, рад, что смог вас заинтересовать",
+      "NEGATIVE": "Вижу, что не смог вас заинтересовать"
+    },
+    "TARGET_CHATS": {
+      "POSITIVE": "@nerkhov",
+      "NEGATIVE": "@nerkhov"
+    },
+    "USE_FALLBACK_ON_OPENAI_FAIL": true,
+    "FALLBACK_TEXT": "Спасибо! Мы получили ваше сообщение и скоро ответим."
+  },
+  "REPLY_ONLY_IF_PREVIOUSLY_WROTE": true,
+  "PROJECT_NAME": "Пользе",
+  "TELEGRAM_HISTORY_LIMIT": 20,
+  "TELEGRAM_FORWARD_LIMIT": 5,
+  "PRE_READ_DELAY_RANGE": [5, 10],
+  "READ_REPLY_DELAY_RANGE": [5, 10],
+  "CHECK_NEW_MSG_INTERVAL_RANGE": [7, 12],
+  "DIALOG_WAIT_WINDOW_RANGE": [40, 60],
+  "ACCOUNT_LOOP_DELAY_RANGE": [90, 180],
+  "TIMEZONE_OFFSET": 3,
+  "SLEEP_PERIODS": ["20:00-08:00, 13:00-14:30"]
+}
