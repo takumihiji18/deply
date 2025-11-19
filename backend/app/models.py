@@ -11,12 +11,21 @@ class CampaignStatus(str, Enum):
     ERROR = "error"
 
 
+class ProxyItem(BaseModel):
+    """Модель для хранения прокси"""
+    id: str  # Уникальный ID прокси
+    url: str  # socks5://user:pass@host:port или http://...
+    name: Optional[str] = None  # Пользовательское имя прокси (опционально)
+    is_active: bool = True
+
+
 class Account(BaseModel):
     session_name: str
     api_id: int
     api_hash: str
     phone: Optional[str] = None
-    proxy: Optional[str] = None
+    proxy: Optional[str] = None  # Старое поле для совместимости (ID прокси или URL)
+    proxy_id: Optional[str] = None  # ID привязанного прокси из списка
     is_active: bool = True
 
 
@@ -56,7 +65,8 @@ class Campaign(BaseModel):
     telegram_settings: TelegramSettings
     work_folder: str
     processed_clients_file: str
-    proxy_list: str = ""  # Список прокси (каждый с новой строки)
+    proxy_list: str = ""  # Старое поле для совместимости (deprecated)
+    proxies: List[ProxyItem] = []  # Новый список прокси как структурированные данные
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 
@@ -73,7 +83,8 @@ class CampaignUpdate(BaseModel):
     accounts: Optional[List[Account]] = None
     openai_settings: Optional[OpenAISettings] = None
     telegram_settings: Optional[TelegramSettings] = None
-    proxy_list: Optional[str] = None
+    proxy_list: Optional[str] = None  # Deprecated
+    proxies: Optional[List[ProxyItem]] = None  # Новый список прокси
 
 
 class DialogMessage(BaseModel):

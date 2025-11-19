@@ -82,6 +82,21 @@ export const getProcessedClients = (campaignId) =>
 export const removeProcessedClient = (campaignId, userId) => 
   api.delete(`/dialogs/${campaignId}/processed/${userId}`);
 
+// Proxies
+export const getProxies = (campaignId) => api.get(`/proxies/${campaignId}`);
+export const addProxy = (campaignId, proxyUrl, proxyName = null) => 
+  api.post(`/proxies/${campaignId}?proxy_url=${encodeURIComponent(proxyUrl)}${proxyName ? `&proxy_name=${encodeURIComponent(proxyName)}` : ''}`);
+export const updateProxy = (campaignId, proxyId, proxyUrl, proxyName = null) => 
+  api.put(`/proxies/${campaignId}/${proxyId}?proxy_url=${encodeURIComponent(proxyUrl)}${proxyName ? `&proxy_name=${encodeURIComponent(proxyName)}` : ''}`);
+export const deleteProxy = (campaignId, proxyId) => 
+  api.delete(`/proxies/${campaignId}/${proxyId}`);
+export const clearAllProxies = (campaignId) => 
+  api.delete(`/proxies/${campaignId}`);
+export const addBulkProxies = (campaignId, proxiesText) => 
+  api.post(`/proxies/${campaignId}/bulk`, null, { params: { proxies_text: proxiesText } });
+export const getProxyUsage = (campaignId) => 
+  api.get(`/proxies/${campaignId}/usage`);
+
 // WebSocket
 export const createWebSocket = () => {
   const wsUrl = API_URL.replace('http', 'ws');

@@ -6,7 +6,13 @@ import {
   updateCampaign,
   deleteAccount,
   uploadSession,
-  uploadJSON
+  uploadJSON,
+  getProxies,
+  addProxy,
+  deleteProxy,
+  clearAllProxies,
+  addBulkProxies,
+  getProxyUsage
 } from '../api/client';
 
 function AccountsManager({ campaign, onUpdate }) {
@@ -15,9 +21,15 @@ function AccountsManager({ campaign, onUpdate }) {
   const [editingAccount, setEditingAccount] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [proxyList, setProxyList] = useState(campaign.proxy_list || '');
+  const [proxies, setProxies] = useState([]);
+  const [proxyUsage, setProxyUsage] = useState({});
+  const [showProxyForm, setShowProxyForm] = useState(false);
+  const [newProxyUrl, setNewProxyUrl] = useState('');
+  const [newProxyName, setNewProxyName] = useState('');
 
   useEffect(() => {
     loadAccounts();
+    loadProxies();
     // Загружаем proxy_list из кампании
     setProxyList(campaign.proxy_list || '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -32,6 +44,102 @@ function AccountsManager({ campaign, onUpdate }) {
       console.error('Error loading accounts:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadProxies = async () => {
+    try {
+      const response = await getProxies(campaign.id);
+      setProxies(response.data);
+      
+      // Загрузить статистику использования
+      const usageResponse = await getProxyUsage(campaign.id);
+      const usageMap = {};
+      usageResponse.data.usage.forEach(item => {
+        usageMap[item.proxy.id] = item.accounts_count;
+      });
+      setProxyUsage(usageMap);
+    } catch (err) {
+      console.error('Error loading proxies:', err);
+    }
+  };
+
+  const handleAddProxy = async () => {
+    if (!newProxyUrl.trim()) {
+      alert('Введите URL прокси');
+      return;
+    }
+
+    try {
+      await addProxy(campaign.id, newProxyUrl.trim(), newProxyName.trim() || null);
+      await loadProxies();
+      setNewProxyUrl('');
+      setNewProxyName('');
+      setShowProxyForm(false);
+    } catch (err) {
+      alert('Ошибка добавления прокси: ' + err.message);
+    }
+  };
+
+  const handleDeleteProxy = async (proxyId) => {
+    if (!window.confirm('Удалить этот прокси? Он будет отвязан от всех аккаунтов.')) return;
+
+    try {
+      await deleteProxy(campaign.id, proxyId);
+      await loadProxies();
+      await loadAccounts(); // Обновить аккаунты, т.к. у них могла измениться привязка
+    } catch (err) {
+      alert('Ошибка удаления прокси: ' + err.message);
+    }
+  };
+
+  const handleClearAllProxies = async () => {
+    if (!window.confirm('Удалить все прокси? Они будут отвязаны от всех аккаунтов.')) return;
+
+    try {
+      await clearAllProxies(campaign.id);
+      await loadProxies();
+      await loadAccounts();
+      alert('Все прокси удалены');
+    } catch (err) {
+      alert('Ошибка очистки прокси: ' + err.message);
+    }
+  };
+
+  const handleBulkAddProxies = async () => {
+    if (!proxyList.trim()) {
+      alert('Введите список прокси');
+      return;
+    }
+
+    try {
+      const response = await addBulkProxies(campaign.id, proxyList.trim());
+      await loadProxies();
+      alert(`Добавлено: ${response.data.added}, пропущено (дубликаты): ${response.data.skipped}`);
+    } catch (err) {
+      alert('Ошибка добавления прокси: ' + err.message);
+    }
+  };
+
+  const handleAssignProxyToAccount = async (sessionName, proxyId) => {
+    try {
+      const account = accounts.find(a => a.session_name === sessionName);
+      if (!account) return;
+
+      // Найти URL прокси
+      const proxy = proxies.find(p => p.id === proxyId);
+      const proxyUrl = proxy ? proxy.url : null;
+
+      await updateAccount(campaign.id, sessionName, {
+        ...account,
+        proxy_id: proxyId || null,
+        proxy: proxyUrl || null
+      });
+      
+      await loadAccounts();
+      await loadProxies(); // Обновить статистику использования
+    } catch (err) {
+      alert('Ошибка привязки прокси: ' + err.message);
     }
   };
 
@@ -172,7 +280,7 @@ function AccountsManager({ campaign, onUpdate }) {
           </button>
         </div>
 
-        {/* Загрузка .session файла и прокси */}
+        {/* Загрузка .session файла */}
         <div className="upload-section" style={{marginBottom: '20px', backgroundColor: '#f7fafc', padding: '20px', borderRadius: '8px'}}>
           <h3 style={{marginTop: 0, marginBottom: '15px'}}>📁 Загрузка аккаунтов</h3>
           
@@ -193,31 +301,124 @@ function AccountsManager({ campaign, onUpdate }) {
               ✓ JSON файлы должны иметь то же имя что и .session
             </small>
           </div>
+        </div>
 
-          <div>
+        {/* Управление прокси */}
+        <div className="proxy-section" style={{marginBottom: '20px', backgroundColor: '#f0f9ff', padding: '20px', borderRadius: '8px', border: '1px solid #bae6fd'}}>
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px'}}>
+            <h3 style={{margin: 0}}>🔐 Управление прокси ({proxies.length})</h3>
+            <div>
+              <button 
+                className="btn-primary" 
+                onClick={() => setShowProxyForm(true)}
+                style={{marginRight: '10px'}}
+              >
+                ➕ Добавить прокси
+              </button>
+              {proxies.length > 0 && (
+                <button 
+                  className="btn-danger" 
+                  onClick={handleClearAllProxies}
+                >
+                  🗑 Очистить все
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Форма добавления прокси */}
+          {showProxyForm && (
+            <div style={{marginBottom: '15px', padding: '15px', backgroundColor: 'white', borderRadius: '6px'}}>
+              <div style={{marginBottom: '10px'}}>
+                <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>URL прокси *</label>
+                <input
+                  type="text"
+                  value={newProxyUrl}
+                  onChange={(e) => setNewProxyUrl(e.target.value)}
+                  placeholder="socks5://user:pass@host:port"
+                  style={{width: '100%', padding: '8px', border: '1px solid #e2e8f0', borderRadius: '4px'}}
+                />
+              </div>
+              <div style={{marginBottom: '10px'}}>
+                <label style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>Название (опционально)</label>
+                <input
+                  type="text"
+                  value={newProxyName}
+                  onChange={(e) => setNewProxyName(e.target.value)}
+                  placeholder="Мой прокси 1"
+                  style={{width: '100%', padding: '8px', border: '1px solid #e2e8f0', borderRadius: '4px'}}
+                />
+              </div>
+              <div style={{display: 'flex', gap: '10px'}}>
+                <button className="btn-primary" onClick={handleAddProxy}>Добавить</button>
+                <button className="btn-secondary" onClick={() => setShowProxyForm(false)}>Отмена</button>
+              </div>
+            </div>
+          )}
+
+          {/* Массовое добавление */}
+          <div style={{marginBottom: '15px'}}>
             <label style={{display: 'block', marginBottom: '8px', fontWeight: '500'}}>
-              🔐 Список прокси (по одному на строку)
+              Или добавить несколько прокси (по одному на строку)
             </label>
             <textarea
               value={proxyList}
               onChange={(e) => setProxyList(e.target.value)}
-              onBlur={async () => {
-                // Автоматически сохраняем proxy_list при потере фокуса
-                try {
-                  await updateCampaign(campaign.id, { proxy_list: proxyList });
-                  console.log('✓ Proxy list saved');
-                } catch (err) {
-                  console.error('Failed to save proxy list:', err);
-                }
-              }}
               placeholder={'socks5://user:pass@host:port\nhttp://user:pass@host:port\n...'}
-              rows={4}
+              rows={3}
               style={{width: '100%', padding: '10px', border: '1px solid #e2e8f0', borderRadius: '6px', fontFamily: 'monospace', fontSize: '13px'}}
             />
-            <small style={{display: 'block', marginTop: '5px', color: '#718096'}}>
-              Прокси будут автоматически распределены между аккаунтами
-            </small>
+            <button 
+              className="btn-secondary" 
+              onClick={handleBulkAddProxies}
+              style={{marginTop: '8px'}}
+            >
+              📥 Загрузить список
+            </button>
           </div>
+
+          {/* Список прокси */}
+          {proxies.length > 0 ? (
+            <div style={{marginTop: '15px'}}>
+              <h4 style={{marginBottom: '10px'}}>Добавленные прокси:</h4>
+              <div style={{maxHeight: '200px', overflowY: 'auto'}}>
+                {proxies.map(proxy => (
+                  <div 
+                    key={proxy.id} 
+                    style={{
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center',
+                      padding: '10px',
+                      marginBottom: '8px',
+                      backgroundColor: 'white',
+                      borderRadius: '6px',
+                      border: '1px solid #e2e8f0'
+                    }}
+                  >
+                    <div style={{flex: 1}}>
+                      {proxy.name && <div style={{fontWeight: 'bold', marginBottom: '4px'}}>{proxy.name}</div>}
+                      <div style={{fontFamily: 'monospace', fontSize: '12px', color: '#64748b'}}>{proxy.url}</div>
+                      <div style={{fontSize: '12px', color: '#94a3b8', marginTop: '4px'}}>
+                        📊 Привязано аккаунтов: {proxyUsage[proxy.id] || 0}
+                      </div>
+                    </div>
+                    <button 
+                      className="btn-danger"
+                      onClick={() => handleDeleteProxy(proxy.id)}
+                      style={{marginLeft: '10px'}}
+                    >
+                      🗑
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div style={{textAlign: 'center', padding: '20px', color: '#94a3b8'}}>
+              Нет добавленных прокси
+            </div>
+          )}
         </div>
 
         {showAddForm && (
@@ -244,34 +445,67 @@ function AccountsManager({ campaign, onUpdate }) {
               </tr>
             </thead>
             <tbody>
-              {accounts.map(account => (
-                <tr key={account.session_name}>
-                  <td>{account.session_name}</td>
-                  <td>{account.api_id}</td>
-                  <td>{account.phone || '-'}</td>
-                  <td>{account.proxy || 'Без прокси'}</td>
-                  <td>
-                    <span className={`status-badge ${account.is_active ? 'running' : 'stopped'}`}>
-                      {account.is_active ? 'Активен' : 'Неактивен'}
-                    </span>
-                  </td>
-                  <td>
-                    <button 
-                      className="btn-secondary" 
-                      onClick={() => setEditingAccount(account)}
-                      style={{marginRight: '5px'}}
-                    >
-                      ✏️
-                    </button>
-                    <button 
-                      className="btn-danger" 
-                      onClick={() => handleDelete(account.session_name)}
-                    >
-                      🗑
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {accounts.map(account => {
+                const selectedProxy = proxies.find(p => p.id === account.proxy_id);
+                return (
+                  <tr key={account.session_name}>
+                    <td>{account.session_name}</td>
+                    <td>{account.api_id}</td>
+                    <td>{account.phone || '-'}</td>
+                    <td>
+                      <select
+                        value={account.proxy_id || ''}
+                        onChange={(e) => handleAssignProxyToAccount(account.session_name, e.target.value || null)}
+                        style={{
+                          padding: '6px 10px',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '4px',
+                          fontSize: '13px',
+                          width: '100%',
+                          maxWidth: '300px'
+                        }}
+                      >
+                        <option value="">Без прокси</option>
+                        {proxies.map(proxy => {
+                          const usage = proxyUsage[proxy.id] || 0;
+                          const displayName = proxy.name || proxy.url;
+                          const label = `${displayName} (${usage} ${usage === 1 ? 'аккаунт' : usage > 1 && usage < 5 ? 'аккаунта' : 'аккаунтов'})`;
+                          return (
+                            <option key={proxy.id} value={proxy.id}>
+                              {label}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      {selectedProxy && (
+                        <div style={{fontSize: '11px', color: '#64748b', marginTop: '4px', fontFamily: 'monospace'}}>
+                          {selectedProxy.url}
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`status-badge ${account.is_active ? 'running' : 'stopped'}`}>
+                        {account.is_active ? 'Активен' : 'Неактивен'}
+                      </span>
+                    </td>
+                    <td>
+                      <button 
+                        className="btn-secondary" 
+                        onClick={() => setEditingAccount(account)}
+                        style={{marginRight: '5px'}}
+                      >
+                        ✏️
+                      </button>
+                      <button 
+                        className="btn-danger" 
+                        onClick={() => handleDelete(account.session_name)}
+                      >
+                        🗑
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -355,13 +589,18 @@ function AccountForm({ account, onSubmit, onCancel }) {
       </div>
 
       <div className="form-group">
-        <label>Прокси (опционально)</label>
+        <label>Прокси (можно настроить в таблице)</label>
         <input
           type="text"
-          value={formData.proxy}
+          value={formData.proxy || ''}
           onChange={(e) => setFormData({...formData, proxy: e.target.value})}
-          placeholder="socks5://user:pass@host:port"
+          placeholder="Прокси можно выбрать в таблице аккаунтов"
+          disabled
+          style={{backgroundColor: '#f1f5f9', cursor: 'not-allowed'}}
         />
+        <small style={{display: 'block', marginTop: '5px', color: '#64748b'}}>
+          💡 После создания аккаунта выберите прокси из выпадающего списка в таблице
+        </small>
       </div>
 
       <div className="form-group">

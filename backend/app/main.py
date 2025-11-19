@@ -5,7 +5,7 @@ import asyncio
 from typing import Dict, Set
 import json
 
-from .api import campaigns, accounts, dialogs
+from .api import campaigns, accounts, dialogs, proxies
 from .campaign_manager import campaign_runner
 
 
@@ -28,6 +28,7 @@ app.add_middleware(
 app.include_router(campaigns.router)
 app.include_router(accounts.router)
 app.include_router(dialogs.router)
+app.include_router(proxies.router)
 
 
 # WebSocket для real-time обновлений
