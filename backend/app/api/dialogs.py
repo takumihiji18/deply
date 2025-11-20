@@ -1,10 +1,16 @@
-from fastapi import APIRouter, HTTPException, File, UploadFile, Body
-from typing import List
+from fastapi import APIRouter, HTTPException, File, UploadFile
+from pydantic import BaseModel
+from typing import List, Optional
 import os
 import json
 
 from ..models import Dialog, DialogMessage, ProcessedClient
 from ..database import db
+
+
+class AddProcessedClientRequest(BaseModel):
+    user_id: int
+    username: Optional[str] = None
 
 
 router = APIRouter(prefix="/dialogs", tags=["dialogs"])
@@ -237,11 +243,7 @@ async def remove_processed_client(campaign_id: str, user_id: int):
 
 
 @router.post("/{campaign_id}/processed/add")
-async def add_processed_client(
-    campaign_id: str, 
-    user_id: int = Body(...), 
-    username: str = Body(None)
-):
+async def add_processed_client(campaign_id: str, data: AddProcessedClientRequest):
     """Добавить клиента в список обработанных"""
     campaign = await db.get_campaign(campaign_id)
     if not campaign:
@@ -259,15 +261,15 @@ async def add_processed_client(
         with open(processed_file, 'r', encoding='utf-8') as f:
             for line in f:
                 parts = line.split('|')
-                if parts and int(parts[0].strip()) == user_id:
+                if parts and int(parts[0].strip()) == data.user_id:
                     raise HTTPException(status_code=400, detail="Client already processed")
     
     # Добавляем клиента
-    line = f"{user_id} | {username if username else '(no username)'}"
+    line = f"{data.user_id} | {data.username if data.username else '(no username)'}"
     with open(processed_file, 'a', encoding='utf-8') as f:
         f.write(line + "\n")
     
-    return {"status": "added", "user_id": user_id}
+    return {"status": "added", "user_id": data.user_id}
 
 
 @router.post("/{campaign_id}/processed/upload")
