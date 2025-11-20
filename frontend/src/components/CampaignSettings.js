@@ -281,46 +281,6 @@ function CampaignSettings({ campaign, onUpdate }) {
         </div>
 
         <div className="form-group">
-          <label>Интервал проверки новых сообщений (секунды)</label>
-          <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
-            <div style={{flex: 1}}>
-              <label style={{fontSize: '12px', marginBottom: '5px'}}>От</label>
-              <input
-                type="number"
-                min="0"
-                step="0.5"
-                value={settings.telegram_settings.check_new_msg_interval_range[0]}
-                onChange={(e) => {
-                  const min = parseFloat(e.target.value) || 0;
-                  const max = settings.telegram_settings.check_new_msg_interval_range[1];
-                  handleTelegramChange('check_new_msg_interval_range', [min, max]);
-                }}
-                placeholder="7"
-              />
-            </div>
-            <span style={{marginTop: '20px'}}>—</span>
-            <div style={{flex: 1}}>
-              <label style={{fontSize: '12px', marginBottom: '5px'}}>До</label>
-              <input
-                type="number"
-                min="0"
-                step="0.5"
-                value={settings.telegram_settings.check_new_msg_interval_range[1]}
-                onChange={(e) => {
-                  const min = settings.telegram_settings.check_new_msg_interval_range[0];
-                  const max = parseFloat(e.target.value) || 0;
-                  handleTelegramChange('check_new_msg_interval_range', [min, max]);
-                }}
-                placeholder="12"
-              />
-            </div>
-          </div>
-          <small style={{color: '#718096', marginTop: '5px', display: 'block'}}>
-            Как часто проверять новые сообщения в открытом диалоге
-          </small>
-        </div>
-
-        <div className="form-group">
           <label>Окно ожидания в диалоге (секунды)</label>
           <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
             <div style={{flex: 1}}>

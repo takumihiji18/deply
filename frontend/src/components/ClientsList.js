@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { getProcessedClients, removeProcessedClient } from '../api/client';
+import { getProcessedClients, removeProcessedClient, addProcessedClient, uploadProcessedClients } from '../api/client';
 
 function ClientsList({ campaignId }) {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newUserId, setNewUserId] = useState('');
+  const [newUsername, setNewUsername] = useState('');
 
   useEffect(() => {
     loadClients();
@@ -33,6 +36,37 @@ function ClientsList({ campaignId }) {
       await loadClients();
     } catch (err) {
       alert('Ошибка удаления клиента: ' + err.message);
+    }
+  };
+
+  const handleAddClient = async () => {
+    if (!newUserId.trim()) {
+      alert('Введите ID пользователя');
+      return;
+    }
+
+    try {
+      await addProcessedClient(campaignId, parseInt(newUserId), newUsername.trim() || null);
+      setNewUserId('');
+      setNewUsername('');
+      setShowAddForm(false);
+      await loadClients();
+    } catch (err) {
+      alert('Ошибка добавления клиента: ' + err.message);
+    }
+  };
+
+  const handleUploadFile = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      const response = await uploadProcessedClients(campaignId, file);
+      alert(`Загружено клиентов: ${response.data.added_count}`);
+      await loadClients();
+      e.target.value = ''; // Reset file input
+    } catch (err) {
+      alert('Ошибка загрузки файла: ' + err.message);
     }
   };
 
@@ -66,7 +100,59 @@ function ClientsList({ campaignId }) {
         <div style={{marginBottom: '20px', padding: '15px', backgroundColor: '#e6f3ff', borderRadius: '8px'}}>
           <strong>ℹ️ Информация:</strong> Эти клиенты уже были обработаны ботом (получили положительный или отрицательный результат). 
           Бот больше не будет с ними общаться, пока вы не удалите их из этого списка.
+          <br /><br />
+          <strong>📝 По умолчанию добавлены:</strong> SpamBot (178220800) и PremiumBot (5314653481)
         </div>
+
+        <div style={{marginBottom: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
+          <button 
+            className="btn-secondary" 
+            onClick={() => setShowAddForm(!showAddForm)}
+          >
+            {showAddForm ? 'Отмена' : '➕ Добавить клиента'}
+          </button>
+          
+          <label 
+            className="btn-secondary" 
+            style={{cursor: 'pointer', display: 'inline-block'}}
+          >
+            📤 Загрузить список из файла
+            <input
+              type="file"
+              accept=".txt"
+              onChange={handleUploadFile}
+              style={{display: 'none'}}
+            />
+          </label>
+        </div>
+
+        {showAddForm && (
+          <div style={{marginBottom: '20px', padding: '15px', border: '1px solid #e2e8f0', borderRadius: '6px', backgroundColor: '#f7fafc'}}>
+            <h4 style={{marginTop: 0}}>Добавить клиента вручную</h4>
+            <div className="form-group">
+              <label>ID пользователя</label>
+              <input
+                type="number"
+                value={newUserId}
+                onChange={(e) => setNewUserId(e.target.value)}
+                placeholder="123456789"
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Username (опционально)</label>
+              <input
+                type="text"
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value)}
+                placeholder="@username"
+              />
+            </div>
+            <button className="btn-primary" onClick={handleAddClient}>
+              Добавить клиента
+            </button>
+          </div>
+        )}
 
         {filteredClients.length === 0 ? (
           <div className="empty-state">

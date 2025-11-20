@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, File, UploadFile, Body
 from typing import List
 import os
 import json
@@ -234,5 +234,119 @@ async def remove_processed_client(campaign_id: str, user_id: int):
         f.writelines(lines)
     
     return {"status": "deleted"}
+
+
+@router.post("/{campaign_id}/processed/add")
+async def add_processed_client(
+    campaign_id: str, 
+    user_id: int = Body(...), 
+    username: str = Body(None)
+):
+    """Добавить клиента в список обработанных"""
+    campaign = await db.get_campaign(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Преобразуем относительный путь в абсолютный
+    processed_file = campaign.processed_clients_file
+    if not os.path.isabs(processed_file):
+        current_file = os.path.abspath(__file__)
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+        processed_file = os.path.join(project_root, processed_file)
+    
+    # Проверяем, не добавлен ли уже
+    if os.path.exists(processed_file):
+        with open(processed_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                parts = line.split('|')
+                if parts and int(parts[0].strip()) == user_id:
+                    raise HTTPException(status_code=400, detail="Client already processed")
+    
+    # Добавляем клиента
+    line = f"{user_id} | {username if username else '(no username)'}"
+    with open(processed_file, 'a', encoding='utf-8') as f:
+        f.write(line + "\n")
+    
+    return {"status": "added", "user_id": user_id}
+
+
+@router.post("/{campaign_id}/processed/upload")
+async def upload_processed_clients(campaign_id: str, file: UploadFile = File(...)):
+    """Загрузить список обработанных клиентов из файла"""
+    campaign = await db.get_campaign(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Преобразуем относительный путь в абсолютный
+    processed_file = campaign.processed_clients_file
+    if not os.path.isabs(processed_file):
+        current_file = os.path.abspath(__file__)
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+        processed_file = os.path.join(project_root, processed_file)
+    
+    # Читаем загруженный файл
+    content = await file.read()
+    lines = content.decode('utf-8').splitlines()
+    
+    # Читаем существующие клиенты
+    existing_ids = set()
+    if os.path.exists(processed_file):
+        with open(processed_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                parts = line.split('|')
+                if parts:
+                    try:
+                        existing_ids.add(int(parts[0].strip()))
+                    except ValueError:
+                        pass
+    
+    # Добавляем новые клиенты
+    added_count = 0
+    with open(processed_file, 'a', encoding='utf-8') as f:
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Формат может быть: "user_id | @username" или просто "user_id"
+            parts = line.split('|')
+            try:
+                user_id = int(parts[0].strip())
+                if user_id not in existing_ids:
+                    username = parts[1].strip() if len(parts) > 1 else '(no username)'
+                    f.write(f"{user_id} | {username}\n")
+                    existing_ids.add(user_id)
+                    added_count += 1
+            except ValueError:
+                continue
+    
+    return {"status": "uploaded", "added_count": added_count}
+
+
+@router.post("/{campaign_id}/dialogs/upload")
+async def upload_dialog_history(campaign_id: str, file: UploadFile = File(...)):
+    """Загрузить историю диалогов из файла .jsonl"""
+    campaign = await db.get_campaign(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Преобразуем относительный путь в абсолютный
+    work_folder = campaign.work_folder
+    if not os.path.isabs(work_folder):
+        current_file = os.path.abspath(__file__)
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+        work_folder = os.path.join(project_root, work_folder)
+    
+    convos_dir = os.path.join(work_folder, "convos")
+    os.makedirs(convos_dir, exist_ok=True)
+    
+    # Сохраняем файл в папку convos
+    file_path = os.path.join(convos_dir, file.filename)
+    
+    content = await file.read()
+    with open(file_path, 'wb') as f:
+        f.write(content)
+    
+    return {"status": "uploaded", "filename": file.filename}
 
 

@@ -35,8 +35,8 @@ class OpenAISettings(BaseModel):
     proxy: Optional[str] = None
     system_prompt: str
     project_name: str = ""
-    trigger_phrases_positive: str = "ИНТЕРЕСНО"
-    trigger_phrases_negative: str = "НЕ_ИНТЕРЕСНО"
+    trigger_phrases_positive: str = "Отлично, рад, что смог вас заинтересовать"
+    trigger_phrases_negative: str = "Вижу, что не смог вас заинтересовать"
     target_chats_positive: str = ""
     target_chats_negative: str = ""
     use_fallback_on_fail: bool = False

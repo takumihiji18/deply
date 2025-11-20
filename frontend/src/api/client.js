@@ -81,6 +81,26 @@ export const getProcessedClients = (campaignId) =>
   api.get(`/dialogs/${campaignId}/processed`);
 export const removeProcessedClient = (campaignId, userId) => 
   api.delete(`/dialogs/${campaignId}/processed/${userId}`);
+export const addProcessedClient = (campaignId, userId, username = null) => 
+  api.post(`/dialogs/${campaignId}/processed/add`, { user_id: userId, username: username });
+export const uploadProcessedClients = (campaignId, file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return api.post(`/dialogs/${campaignId}/processed/upload`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+export const uploadDialogHistory = (campaignId, file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return api.post(`/dialogs/${campaignId}/dialogs/upload`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
 
 // Proxies
 export const getProxies = (campaignId) => api.get(`/proxies/${campaignId}`);

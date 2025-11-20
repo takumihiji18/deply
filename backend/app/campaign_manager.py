@@ -322,10 +322,12 @@ class CampaignRunner:
             with open(prompt_path, 'w', encoding='utf-8') as f:
                 f.write(campaign.openai_settings.system_prompt)
             
-            # Создать пустой processed_clients.txt
+            # Создать processed_clients.txt с дефолтными ботами
             processed_path = os.path.join(campaign_dir, "processed_clients.txt")
             if not os.path.exists(processed_path):
-                open(processed_path, 'w').close()
+                with open(processed_path, 'w', encoding='utf-8') as f:
+                    f.write("178220800 | SpamBot\n")
+                    f.write("5314653481 | PremiumBot\n")
             
             return config_path
         except Exception as e:

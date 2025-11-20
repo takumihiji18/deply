@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getCampaignDialogs, deleteDialog } from '../api/client';
+import { getCampaignDialogs, deleteDialog, uploadDialogHistory } from '../api/client';
 
 function DialogHistory({ campaignId }) {
   const [dialogs, setDialogs] = useState([]);
@@ -35,6 +35,25 @@ function DialogHistory({ campaignId }) {
     }
   };
 
+  const handleUploadDialog = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.jsonl')) {
+      alert('Пожалуйста, загрузите файл с расширением .jsonl');
+      return;
+    }
+
+    try {
+      await uploadDialogHistory(campaignId, file);
+      alert(`Файл "${file.name}" успешно загружен`);
+      await loadDialogs();
+      e.target.value = ''; // Reset file input
+    } catch (err) {
+      alert('Ошибка загрузки файла: ' + err.message);
+    }
+  };
+
   const filteredDialogs = dialogs.filter(dialog => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
@@ -54,13 +73,31 @@ function DialogHistory({ campaignId }) {
       <div className="card">
         <div className="card-header">
           <h2>💬 История диалогов</h2>
-          <input
-            type="text"
-            placeholder="Поиск по username, ID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{width: '300px'}}
-          />
+          <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
+            <input
+              type="text"
+              placeholder="Поиск по username, ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{width: '300px'}}
+            />
+            <label 
+              className="btn-secondary" 
+              style={{cursor: 'pointer', display: 'inline-block', margin: 0}}
+            >
+              📤 Загрузить диалог (.jsonl)
+              <input
+                type="file"
+                accept=".jsonl"
+                onChange={handleUploadDialog}
+                style={{display: 'none'}}
+              />
+            </label>
+          </div>
+        </div>
+
+        <div style={{marginBottom: '15px', padding: '10px', backgroundColor: '#f0f9ff', borderRadius: '6px', fontSize: '14px'}}>
+          <strong>💡 Импорт из обычной программы:</strong> Вы можете загрузить файлы .jsonl с историями диалогов из стандартной версии программы для удобного просмотра здесь.
         </div>
 
         {filteredDialogs.length === 0 ? (

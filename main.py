@@ -253,13 +253,14 @@ async def delay_with_variance(base_range: list[float], variance_percent: float =
     """
     Создает задержку с разбросом времени для имитации человеческого поведения.
     variance_percent - процент разброса от среднего значения
+    Возвращает фактическое время задержки в секундах.
     """
     if not base_range or len(base_range) < 2:
-        return
+        return 0
     
     min_val, max_val = base_range[0], base_range[1]
     if min_val == max_val == 0:
-        return
+        return 0
     
     # Базовая задержка
     base_delay = random.uniform(min_val, max_val)
@@ -268,7 +269,9 @@ async def delay_with_variance(base_range: list[float], variance_percent: float =
     variance = base_delay * variance_percent * random.uniform(-1, 1)
     final_delay = max(0, base_delay + variance)
     
-    await asyncio.sleep(final_delay)
+    if final_delay > 0:
+        await asyncio.sleep(final_delay)
+    
     return final_delay
 
 # ======================== PROMPT ========================
@@ -625,21 +628,26 @@ async def _reply_once_for_batch(
     if not batch:
         return False
     
-    # Задержка перед чтением
+    # Задержка перед чтением (ВАЖНО: имитация человека)
     pre_delay = await delay_with_variance(PRE_READ_DELAY_RANGE, 0.2)
-    if pre_delay:
-        log_info(f"{session_name}: waiting {pre_delay:.1f}s before reading {uid}")
+    if pre_delay and pre_delay > 0:
+        log_info(f"{session_name}: ⏳ waiting {pre_delay:.1f}s before reading {uid} (human-like behavior)")
+    else:
+        log_info(f"{session_name}: ⚠️ WARNING: no pre-read delay configured (PRE_READ_DELAY_RANGE={PRE_READ_DELAY_RANGE})")
     
     # Отмечаем как прочитанное
     try:
         await client.send_read_acknowledge(uid, max_id=batch[-1].id)
+        log_info(f"{session_name}: ✓ marked messages as read for {uid}")
     except Exception as e:
         log_error(f"{session_name}: failed to mark as read: {e!r}")
     
-    # Задержка между чтением и ответом
+    # Задержка между чтением и ответом (ВАЖНО: имитация печати)
     reply_delay = await delay_with_variance(READ_REPLY_DELAY_RANGE, 0.2)
-    if reply_delay:
-        log_info(f"{session_name}: read->reply delay {reply_delay:.1f}s for {uid}")
+    if reply_delay and reply_delay > 0:
+        log_info(f"{session_name}: ⏳ read->reply delay {reply_delay:.1f}s for {uid} (simulating typing)")
+    else:
+        log_info(f"{session_name}: ⚠️ WARNING: no read-reply delay configured (READ_REPLY_DELAY_RANGE={READ_REPLY_DELAY_RANGE})")
     
     # Загружаем историю разговора
     history = convo_load(session_name, uid, username)
