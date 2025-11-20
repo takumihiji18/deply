@@ -82,7 +82,7 @@ export const getProcessedClients = (campaignId) =>
 export const removeProcessedClient = (campaignId, userId) => 
   api.delete(`/dialogs/${campaignId}/processed/${userId}`);
 export const addProcessedClient = (campaignId, userId, username = null) => 
-  api.post(`/dialogs/${campaignId}/processed/add`, { user_id: userId, username: username });
+  api.post(`/dialogs/${campaignId}/processed/add`, { user_id: parseInt(userId), username: username || null });
 export const uploadProcessedClients = (campaignId, file) => {
   const formData = new FormData();
   formData.append('file', file);
