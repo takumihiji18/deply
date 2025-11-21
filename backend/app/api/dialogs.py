@@ -163,113 +163,146 @@ async def delete_dialog(campaign_id: str, session_name: str, user_id: int):
 @router.get("/{campaign_id}/processed", response_model=List[ProcessedClient])
 async def get_processed_clients(campaign_id: str):
     """Получить список обработанных клиентов"""
-    campaign = await db.get_campaign(campaign_id)
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    
-    # Преобразуем относительный путь в абсолютный
-    processed_file = campaign.processed_clients_file
-    if not os.path.isabs(processed_file):
-        current_file = os.path.abspath(__file__)
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
-        processed_file = os.path.join(project_root, processed_file)
-    
-    if not os.path.exists(processed_file):
-        return []
-    
-    clients = []
-    with open(processed_file, 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            
-            # Формат: user_id | @username
-            parts = line.split('|')
-            if len(parts) >= 1:
-                try:
-                    user_id = int(parts[0].strip())
-                    username = parts[1].strip() if len(parts) > 1 else None
-                    
-                    clients.append(ProcessedClient(
-                        user_id=user_id,
-                        username=username,
-                        campaign_id=campaign_id
-                    ))
-                except ValueError:
+    try:
+        campaign = await db.get_campaign(campaign_id)
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        
+        # Преобразуем относительный путь в абсолютный
+        processed_file = campaign.processed_clients_file
+        if not os.path.isabs(processed_file):
+            current_file = os.path.abspath(__file__)
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+            processed_file = os.path.join(project_root, processed_file)
+        
+        if not os.path.exists(processed_file):
+            return []
+        
+        clients = []
+        with open(processed_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
                     continue
+                
+                # Формат: user_id | @username
+                parts = line.split('|')
+                if len(parts) >= 1:
+                    try:
+                        user_id = int(parts[0].strip())
+                        username = parts[1].strip() if len(parts) > 1 else None
+                        
+                        clients.append(ProcessedClient(
+                            user_id=user_id,
+                            username=username,
+                            campaign_id=campaign_id
+                        ))
+                    except ValueError:
+                        continue
+        
+        return clients
     
-    return clients
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERROR in get_processed_clients: {e!r}")
+        return []
 
 
 @router.delete("/{campaign_id}/processed/{user_id}")
 async def remove_processed_client(campaign_id: str, user_id: int):
     """Удалить клиента из списка обработанных"""
-    campaign = await db.get_campaign(campaign_id)
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
+    try:
+        campaign = await db.get_campaign(campaign_id)
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        
+        # Преобразуем относительный путь в абсолютный
+        processed_file = campaign.processed_clients_file
+        if not os.path.isabs(processed_file):
+            current_file = os.path.abspath(__file__)
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+            processed_file = os.path.join(project_root, processed_file)
+        
+        print(f"DELETE processed client {user_id} from {processed_file}")
+        
+        if not os.path.exists(processed_file):
+            print(f"File not found: {processed_file}")
+            raise HTTPException(status_code=404, detail="Processed clients file not found")
+        
+        # Читаем все строки кроме удаляемой
+        lines = []
+        found = False
+        
+        with open(processed_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.strip():
+                    parts = line.split('|')
+                    if parts and int(parts[0].strip()) == user_id:
+                        found = True
+                        print(f"Found client {user_id}, removing...")
+                        continue
+                    lines.append(line)
+        
+        if not found:
+            print(f"Client {user_id} not found in file")
+            raise HTTPException(status_code=404, detail="Client not found in processed list")
+        
+        # Перезаписываем файл
+        with open(processed_file, 'w', encoding='utf-8') as f:
+            f.writelines(lines)
+        
+        print(f"Successfully removed client {user_id}")
+        return {"status": "deleted", "user_id": user_id}
     
-    # Преобразуем относительный путь в абсолютный
-    processed_file = campaign.processed_clients_file
-    if not os.path.isabs(processed_file):
-        current_file = os.path.abspath(__file__)
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
-        processed_file = os.path.join(project_root, processed_file)
-    
-    if not os.path.exists(processed_file):
-        raise HTTPException(status_code=404, detail="Client not found")
-    
-    # Читаем все строки кроме удаляемой
-    lines = []
-    found = False
-    
-    with open(processed_file, 'r', encoding='utf-8') as f:
-        for line in f:
-            if line.strip():
-                parts = line.split('|')
-                if parts and int(parts[0].strip()) == user_id:
-                    found = True
-                    continue
-                lines.append(line)
-    
-    if not found:
-        raise HTTPException(status_code=404, detail="Client not found")
-    
-    # Перезаписываем файл
-    with open(processed_file, 'w', encoding='utf-8') as f:
-        f.writelines(lines)
-    
-    return {"status": "deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERROR in remove_processed_client: {e!r}")
+        raise HTTPException(status_code=500, detail=f"Failed to remove client: {str(e)}")
 
 
 @router.post("/{campaign_id}/processed/add")
 async def add_processed_client(campaign_id: str, data: AddProcessedClientRequest):
     """Добавить клиента в список обработанных"""
-    campaign = await db.get_campaign(campaign_id)
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    
-    # Преобразуем относительный путь в абсолютный
-    processed_file = campaign.processed_clients_file
-    if not os.path.isabs(processed_file):
-        current_file = os.path.abspath(__file__)
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
-        processed_file = os.path.join(project_root, processed_file)
-    
-    # Проверяем, не добавлен ли уже
-    if os.path.exists(processed_file):
+    try:
+        campaign = await db.get_campaign(campaign_id)
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        
+        # Преобразуем относительный путь в абсолютный
+        processed_file = campaign.processed_clients_file
+        if not os.path.isabs(processed_file):
+            current_file = os.path.abspath(__file__)
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+            processed_file = os.path.join(project_root, processed_file)
+        
+        # Создаём файл если не существует
+        if not os.path.exists(processed_file):
+            os.makedirs(os.path.dirname(processed_file), exist_ok=True)
+            with open(processed_file, 'w', encoding='utf-8') as f:
+                f.write("")
+        
+        # Проверяем, не добавлен ли уже
         with open(processed_file, 'r', encoding='utf-8') as f:
             for line in f:
                 parts = line.split('|')
                 if parts and int(parts[0].strip()) == data.user_id:
                     raise HTTPException(status_code=400, detail="Client already processed")
+        
+        # Добавляем клиента
+        line = f"{data.user_id} | {data.username if data.username else '(no username)'}"
+        with open(processed_file, 'a', encoding='utf-8') as f:
+            f.write(line + "\n")
+        
+        print(f"Added processed client {data.user_id}")
+        return {"status": "added", "user_id": data.user_id}
     
-    # Добавляем клиента
-    line = f"{data.user_id} | {data.username if data.username else '(no username)'}"
-    with open(processed_file, 'a', encoding='utf-8') as f:
-        f.write(line + "\n")
-    
-    return {"status": "added", "user_id": data.user_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERROR in add_processed_client: {e!r}")
+        raise HTTPException(status_code=500, detail=f"Failed to add client: {str(e)}")
 
 
 @router.post("/{campaign_id}/processed/upload")
