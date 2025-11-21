@@ -32,7 +32,8 @@ async def create_campaign(campaign_data: CampaignCreate):
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
     
     # Создаем директорию для кампании (АБСОЛЮТНЫЙ путь)
-    campaign_dir = os.path.join(project_root, "campaigns", campaign_id)
+    # ВАЖНО: Используем campaigns_runtime - там же где main.py работает!
+    campaign_dir = os.path.join(project_root, "campaigns_runtime", campaign_id)
     work_folder = os.path.join(campaign_dir, "data")
     processed_file = os.path.join(campaign_dir, "processed_clients.txt")
     
