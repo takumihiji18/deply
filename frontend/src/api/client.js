@@ -23,7 +23,44 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000, // 30 секунд
 });
+
+// Retry interceptor для обработки временных сбоев
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const config = error.config;
+    
+    // Если это первая попытка и ошибка 502/503/Network Error
+    if (!config.__retryCount) {
+      config.__retryCount = 0;
+    }
+    
+    const shouldRetry = 
+      config.__retryCount < 3 && // Максимум 3 попытки
+      (
+        error.code === 'ERR_NETWORK' ||
+        error.response?.status === 502 ||
+        error.response?.status === 503 ||
+        error.response?.status === 504
+      );
+    
+    if (shouldRetry) {
+      config.__retryCount += 1;
+      
+      // Экспоненциальная задержка: 500ms, 1s, 2s
+      const delay = Math.min(1000 * Math.pow(2, config.__retryCount - 1), 2000);
+      
+      console.log(`Retry ${config.__retryCount}/3 after ${delay}ms for ${config.url}`);
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return api(config);
+    }
+    
+    return Promise.reject(error);
+  }
+);
 
 // Campaigns
 export const getCampaigns = () => api.get('/campaigns/');
