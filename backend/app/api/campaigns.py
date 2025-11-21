@@ -237,6 +237,46 @@ async def fix_campaign_paths(campaign_id: str):
     raise HTTPException(status_code=500, detail="Failed to update paths")
 
 
+@router.get("/{campaign_id}/debug-files")
+async def debug_campaign_files(campaign_id: str):
+    """ВРЕМЕННЫЙ DEBUG: показать что реально есть в campaigns_runtime"""
+    current_file = os.path.abspath(__file__)
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+    
+    campaign_dir = os.path.join(project_root, "campaigns_runtime", campaign_id)
+    
+    result = {
+        "campaign_id": campaign_id,
+        "campaign_dir": campaign_dir,
+        "exists": os.path.exists(campaign_dir),
+        "files": {}
+    }
+    
+    if os.path.exists(campaign_dir):
+        # Проверяем processed_clients.txt
+        processed_file = os.path.join(campaign_dir, "processed_clients.txt")
+        if os.path.exists(processed_file):
+            with open(processed_file, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            result["files"]["processed_clients.txt"] = {
+                "exists": True,
+                "lines": len(lines),
+                "content": lines[:10]  # Первые 10 строк
+            }
+        
+        # Проверяем convos/
+        convos_dir = os.path.join(campaign_dir, "data", "convos")
+        if os.path.exists(convos_dir):
+            files = os.listdir(convos_dir)
+            result["files"]["convos"] = {
+                "exists": True,
+                "count": len(files),
+                "files": files[:20]  # Первые 20 файлов
+            }
+    
+    return result
+
+
 @router.get("/{campaign_id}/download-data")
 async def download_campaign_data(campaign_id: str):
     """Скачать все данные кампании (диалоги, обработанные клиенты)"""
