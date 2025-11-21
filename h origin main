@@ -1,0 +1,130 @@
+warning: in the working copy of 'backend/app/api/campaigns.py', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/backend/app/api/campaigns.py b/backend/app/api/campaigns.py[m
+[1mindex 623bd61..1c5f52e 100644[m
+[1m--- a/backend/app/api/campaigns.py[m
+[1m+++ b/backend/app/api/campaigns.py[m
+[36m@@ -1,10 +1,7 @@[m
+ from fastapi import APIRouter, HTTPException, status[m
+[31m-from fastapi.responses import FileResponse[m
+ from typing import List[m
+ import uuid[m
+ import os[m
+[31m-import shutil[m
+[31m-import tempfile[m
+ from datetime import datetime[m
+ [m
+ from ..models import ([m
+[36m@@ -198,113 +195,3 @@[m [masync def get_campaign_stats(campaign_id: str):[m
+     return stats[m
+ [m
+ [m
+[31m-@router.post("/{campaign_id}/fix-paths")[m
+[31m-async def fix_campaign_paths(campaign_id: str):[m
+[31m-    """ВРЕМЕННЫЙ эндпоинт для исправления путей старой кампании"""[m
+[31m-    campaign = await db.get_campaign(campaign_id)[m
+[31m-    if not campaign:[m
+[31m-        raise HTTPException(status_code=404, detail="Campaign not found")[m
+[31m-    [m
+[31m-    # Определить корень проекта[m
+[31m-    current_file = os.path.abspath(__file__)[m
+[31m-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))[m
+[31m-    [m
+[31m-    # Новые пути[m
+[31m-    campaign_dir = os.path.join(project_root, "campaigns_runtime", campaign_id)[m
+[31m-    work_folder = os.path.join(campaign_dir, "data")[m
+[31m-    processed_file = os.path.join(campaign_dir, "processed_clients.txt")[m
+[31m-    [m
+[31m-    # Обновляем пути[m
+[31m-    old_work_folder = campaign.work_folder[m
+[31m-    old_processed_file = campaign.processed_clients_file[m
+[31m-    [m
+[31m-    campaign.work_folder = work_folder[m
+[31m-    campaign.processed_clients_file = processed_file[m
+[31m-    [m
+[31m-    if await db.save_campaign(campaign):[m
+[31m-        return {[m
+[31m-            "status": "fixed",[m
+[31m-            "old_paths": {[m
+[31m-                "work_folder": old_work_folder,[m
+[31m-                "processed_file": old_processed_file[m
+[31m-            },[m
+[31m-            "new_paths": {[m
+[31m-                "work_folder": work_folder,[m
+[31m-                "processed_file": processed_file[m
+[31m-            }[m
+[31m-        }[m
+[31m-    [m
+[31m-    raise HTTPException(status_code=500, detail="Failed to update paths")[m
+[31m-[m
+[31m-[m
+[31m-@router.get("/{campaign_id}/debug-files")[m
+[31m-async def debug_campaign_files(campaign_id: str):[m
+[31m-    """ВРЕМЕННЫЙ DEBUG: показать что реально есть в campaigns_runtime"""[m
+[31m-    current_file = os.path.abspath(__file__)[m
+[31m-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))[m
+[31m-    [m
+[31m-    campaign_dir = os.path.join(project_root, "campaigns_runtime", campaign_id)[m
+[31m-    [m
+[31m-    result = {[m
+[31m-        "campaign_id": campaign_id,[m
+[31m-        "campaign_dir": campaign_dir,[m
+[31m-        "exists": os.path.exists(campaign_dir),[m
+[31m-        "files": {}[m
+[31m-    }[m
+[31m-    [m
+[31m-    if os.path.exists(campaign_dir):[m
+[31m-        # Проверяем processed_clients.txt[m
+[31m-        processed_file = os.path.join(campaign_dir, "processed_clients.txt")[m
+[31m-        if os.path.exists(processed_file):[m
+[31m-            with open(processed_file, 'r', encoding='utf-8') as f:[m
+[31m-                lines = f.readlines()[m
+[31m-            result["files"]["processed_clients.txt"] = {[m
+[31m-                "exists": True,[m
+[31m-                "lines": len(lines),[m
+[31m-                "content": lines[:10]  # Первые 10 строк[m
+[31m-            }[m
+[31m-        [m
+[31m-        # Проверяем convos/[m
+[31m-        convos_dir = os.path.join(campaign_dir, "data", "convos")[m
+[31m-        if os.path.exists(convos_dir):[m
+[31m-            files = os.listdir(convos_dir)[m
+[31m-            result["files"]["convos"] = {[m
+[31m-                "exists": True,[m
+[31m-                "count": len(files),[m
+[31m-                "files": files[:20]  # Первые 20 файлов[m
+[31m-            }[m
+[31m-    [m
+[31m-    return result[m
+[31m-[m
+[31m-[m
+[31m-@router.get("/{campaign_id}/download-data")[m
+[31m-async def download_campaign_data(campaign_id: str):[m
+[31m-    """Скачать все данные кампании (диалоги, обработанные клиенты)"""[m
+[31m-    # Определить корень проекта[m
+[31m-    current_file = os.path.abspath(__file__)[m
+[31m-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))[m
+[31m-    [m
+[31m-    # Путь к данным кампании[m
+[31m-    campaign_dir = os.path.join(project_root, "campaigns_runtime", campaign_id)[m
+[31m-    [m
+[31m-    if not os.path.exists(campaign_dir):[m
+[31m-        raise HTTPException(status_code=404, detail="Campaign data not found")[m
+[31m-    [m
+[31m-    # Создать временный ZIP архив[m
+[31m-    temp_dir = tempfile.mkdtemp()[m
+[31m-    zip_path = os.path.join(temp_dir, f"campaign_{campaign_id}_data")[m
+[31m-    [m
+[31m-    try:[m
+[31m-        # Создаём ZIP архив[m
+[31m-        shutil.make_archive(zip_path, 'zip', campaign_dir)[m
+[31m-        zip_file = f"{zip_path}.zip"[m
+[31m-        [m
+[31m-        return FileResponse([m
+[31m-            path=zip_file,[m
+[31m-            filename=f"campaign_{campaign_id}_backup.zip",[m
+[31m-            media_type='application/zip'[m
+[31m-        )[m
+[31m-    except Exception as e:[m
+[31m-        raise HTTPException(status_code=500, detail=f"Failed to create backup: {str(e)}")[m
+[31m-[m
+[31m-[m

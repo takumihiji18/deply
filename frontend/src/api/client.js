@@ -148,7 +148,7 @@ export const updateProxy = (campaignId, proxyId, proxyUrl, proxyName = null) =>
 export const deleteProxy = (campaignId, proxyId) => 
   api.delete(`/proxies/${campaignId}/${proxyId}`);
 export const clearAllProxies = (campaignId) => 
-  api.delete(`/proxies/${campaignId}`);
+  api.delete(`/proxies/${campaignId}/clear`);
 export const addBulkProxies = (campaignId, proxiesText) => 
   api.post(`/proxies/${campaignId}/bulk`, null, { params: { proxies_text: proxiesText } });
 export const getProxyUsage = (campaignId) => 

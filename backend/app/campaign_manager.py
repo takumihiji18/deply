@@ -330,7 +330,6 @@ class CampaignRunner:
                 "PRE_READ_DELAY_RANGE": campaign.telegram_settings.pre_read_delay_range,
                 "READ_REPLY_DELAY_RANGE": campaign.telegram_settings.read_reply_delay_range,
                 "ACCOUNT_LOOP_DELAY_RANGE": campaign.telegram_settings.account_loop_delay_range,
-                "CHECK_NEW_MSG_INTERVAL_RANGE": campaign.telegram_settings.check_new_msg_interval_range,
                 "DIALOG_WAIT_WINDOW_RANGE": campaign.telegram_settings.dialog_wait_window_range,
                 "SLEEP_PERIODS": campaign.telegram_settings.sleep_periods,
                 "TIMEZONE_OFFSET": campaign.telegram_settings.timezone_offset

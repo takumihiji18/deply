@@ -50,7 +50,6 @@ class TelegramSettings(BaseModel):
     pre_read_delay_range: List[float] = [5, 10]
     read_reply_delay_range: List[float] = [5, 10]
     account_loop_delay_range: List[float] = [90, 180]
-    check_new_msg_interval_range: List[float] = [7, 12]
     dialog_wait_window_range: List[float] = [40, 60]
     sleep_periods: List[str] = ["20:00-08:00", "13:00-14:30"]
     timezone_offset: int = 3

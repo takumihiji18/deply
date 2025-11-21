@@ -1,10 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
-from fastapi.responses import FileResponse
 from typing import List
 import uuid
 import os
-import shutil
-import tempfile
 from datetime import datetime
 
 from ..models import (
@@ -196,115 +193,5 @@ async def get_campaign_stats(campaign_id: str):
     )
     
     return stats
-
-
-@router.post("/{campaign_id}/fix-paths")
-async def fix_campaign_paths(campaign_id: str):
-    """ВРЕМЕННЫЙ эндпоинт для исправления путей старой кампании"""
-    campaign = await db.get_campaign(campaign_id)
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    
-    # Определить корень проекта
-    current_file = os.path.abspath(__file__)
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
-    
-    # Новые пути
-    campaign_dir = os.path.join(project_root, "campaigns_runtime", campaign_id)
-    work_folder = os.path.join(campaign_dir, "data")
-    processed_file = os.path.join(campaign_dir, "processed_clients.txt")
-    
-    # Обновляем пути
-    old_work_folder = campaign.work_folder
-    old_processed_file = campaign.processed_clients_file
-    
-    campaign.work_folder = work_folder
-    campaign.processed_clients_file = processed_file
-    
-    if await db.save_campaign(campaign):
-        return {
-            "status": "fixed",
-            "old_paths": {
-                "work_folder": old_work_folder,
-                "processed_file": old_processed_file
-            },
-            "new_paths": {
-                "work_folder": work_folder,
-                "processed_file": processed_file
-            }
-        }
-    
-    raise HTTPException(status_code=500, detail="Failed to update paths")
-
-
-@router.get("/{campaign_id}/debug-files")
-async def debug_campaign_files(campaign_id: str):
-    """ВРЕМЕННЫЙ DEBUG: показать что реально есть в campaigns_runtime"""
-    current_file = os.path.abspath(__file__)
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
-    
-    campaign_dir = os.path.join(project_root, "campaigns_runtime", campaign_id)
-    
-    result = {
-        "campaign_id": campaign_id,
-        "campaign_dir": campaign_dir,
-        "exists": os.path.exists(campaign_dir),
-        "files": {}
-    }
-    
-    if os.path.exists(campaign_dir):
-        # Проверяем processed_clients.txt
-        processed_file = os.path.join(campaign_dir, "processed_clients.txt")
-        if os.path.exists(processed_file):
-            with open(processed_file, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
-            result["files"]["processed_clients.txt"] = {
-                "exists": True,
-                "lines": len(lines),
-                "content": lines[:10]  # Первые 10 строк
-            }
-        
-        # Проверяем convos/
-        convos_dir = os.path.join(campaign_dir, "data", "convos")
-        if os.path.exists(convos_dir):
-            files = os.listdir(convos_dir)
-            result["files"]["convos"] = {
-                "exists": True,
-                "count": len(files),
-                "files": files[:20]  # Первые 20 файлов
-            }
-    
-    return result
-
-
-@router.get("/{campaign_id}/download-data")
-async def download_campaign_data(campaign_id: str):
-    """Скачать все данные кампании (диалоги, обработанные клиенты)"""
-    # Определить корень проекта
-    current_file = os.path.abspath(__file__)
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
-    
-    # Путь к данным кампании
-    campaign_dir = os.path.join(project_root, "campaigns_runtime", campaign_id)
-    
-    if not os.path.exists(campaign_dir):
-        raise HTTPException(status_code=404, detail="Campaign data not found")
-    
-    # Создать временный ZIP архив
-    temp_dir = tempfile.mkdtemp()
-    zip_path = os.path.join(temp_dir, f"campaign_{campaign_id}_data")
-    
-    try:
-        # Создаём ZIP архив
-        shutil.make_archive(zip_path, 'zip', campaign_dir)
-        zip_file = f"{zip_path}.zip"
-        
-        return FileResponse(
-            path=zip_file,
-            filename=f"campaign_{campaign_id}_backup.zip",
-            media_type='application/zip'
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create backup: {str(e)}")
 
 
