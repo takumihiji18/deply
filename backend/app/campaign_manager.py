@@ -208,8 +208,38 @@ class CampaignRunner:
             sessions_dir = os.path.join(work_folder, "sessions")
             os.makedirs(sessions_dir, exist_ok=True)
             
-            # Копировать сессии аккаунтов и подготовить api_map.txt + proxies.txt
+            # ОЧИСТКА СТАРЫХ ФАЙЛОВ (важно для корректного удаления аккаунтов)
             print(f"\n{'='*80}")
+            print(f"CLEANING OLD FILES FOR: {campaign.id}")
+            print(f"{'='*80}")
+            
+            # Удаляем старые .session файлы
+            if os.path.exists(sessions_dir):
+                for file in os.listdir(sessions_dir):
+                    if file.endswith('.session'):
+                        old_session = os.path.join(sessions_dir, file)
+                        os.remove(old_session)
+                        print(f"  🗑 Удалён старый файл: {file}")
+            
+            # Удаляем старые .json файлы аккаунтов
+            campaign_data_dir = os.path.join(campaign_dir, "data")
+            if os.path.exists(campaign_data_dir):
+                for file in os.listdir(campaign_data_dir):
+                    if file.endswith('.json'):
+                        old_json = os.path.join(campaign_data_dir, file)
+                        os.remove(old_json)
+                        print(f"  🗑 Удалён старый JSON: {file}")
+            
+            # Удаляем старый api_map.txt
+            old_api_map = os.path.join(campaign_dir, "api_map.txt")
+            if os.path.exists(old_api_map):
+                os.remove(old_api_map)
+                print(f"  🗑 Удалён старый api_map.txt")
+            
+            print(f"✓ Очистка завершена\n")
+            
+            # Копировать сессии аккаунтов и подготовить api_map.txt + proxies.txt
+            print(f"{'='*80}")
             print(f"CREATING CAMPAIGN CONFIG FOR: {campaign.id}")
             print(f"Campaign name: {campaign.name}")
             print(f"Total accounts: {len(campaign.accounts)}")
