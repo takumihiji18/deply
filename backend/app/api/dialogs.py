@@ -236,17 +236,44 @@ async def remove_processed_client(campaign_id: str, user_id: int):
         
         with open(processed_file, 'r', encoding='utf-8') as f:
             for line in f:
-                if line.strip():
-                    parts = line.split('|')
-                    if parts and int(parts[0].strip()) == user_id:
-                        found = True
-                        print(f"Found client {user_id}, removing...")
-                        continue
+                line_content = line.strip()
+                if not line_content:
+                    # Пропускаем пустые строки, но НЕ добавляем их в новый файл
+                    continue
+                
+                try:
+                    parts = line_content.split('|')
+                    if parts and parts[0].strip():
+                        # Пытаемся преобразовать в int
+                        current_user_id = int(parts[0].strip())
+                        if current_user_id == user_id:
+                            found = True
+                            print(f"Found client {user_id}, removing...")
+                            continue  # Пропускаем эту строку (удаляем)
+                    
+                    # Если не нашли совпадение - сохраняем строку
+                    lines.append(line)
+                except ValueError:
+                    # Если не смогли распарсить user_id - сохраняем строку как есть
+                    print(f"Warning: invalid line format: {line_content}")
                     lines.append(line)
         
         if not found:
             print(f"Client {user_id} not found in file")
-            raise HTTPException(status_code=404, detail="Client not found in processed list")
+            print(f"File path: {processed_file}")
+            print(f"File exists: {os.path.exists(processed_file)}")
+            print(f"File size: {os.path.getsize(processed_file) if os.path.exists(processed_file) else 0} bytes")
+            
+            # Показываем что в файле
+            print("File contents:")
+            try:
+                with open(processed_file, 'r', encoding='utf-8') as f:
+                    for i, line in enumerate(f, 1):
+                        print(f"  Line {i}: {line.strip()}")
+            except Exception as e:
+                print(f"  Error reading file: {e!r}")
+            
+            raise HTTPException(status_code=404, detail=f"Client {user_id} not found in processed list")
         
         # Перезаписываем файл
         with open(processed_file, 'w', encoding='utf-8') as f:
