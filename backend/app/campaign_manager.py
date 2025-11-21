@@ -217,14 +217,14 @@ class CampaignRunner:
             print(f"{'='*80}\n")
             
             api_map_lines = []
-            proxies = []
+            account_configs = {}  # Хранить конфиг для каждого аккаунта (включая прокси)
             
             for account in campaign.accounts:
                 print(f"\n--- Processing account: {account.session_name} ---")
                 print(f"  is_active: {account.is_active}")
                 print(f"  api_id: {account.api_id}")
                 print(f"  api_hash: {account.api_hash[:10] if account.api_hash else 'EMPTY'}...")
-                print(f"  proxy: {account.proxy[:50] if account.proxy else 'none'}...")
+                print(f"  proxy_id: {account.proxy_id if account.proxy_id else 'none'}")
                 
                 if not account.is_active:
                     print(f"  ⏭ SKIPPED (not active)")
@@ -254,10 +254,28 @@ class CampaignRunner:
                 api_map_lines.append(f"{account.session_name} {account.api_id} {account.api_hash}")
                 print(f"  ✓ Добавлен в api_map.txt")
                 
-                # Собрать прокси
-                if account.proxy and account.proxy.strip():
-                    proxies.append(account.proxy.strip())
-                    print(f"  ✓ Прокси добавлен: {account.proxy[:50]}...")
+                # Найти прокси по proxy_id из campaign.proxies
+                proxy_url = None
+                if account.proxy_id:
+                    for proxy in campaign.proxies:
+                        if proxy.id == account.proxy_id:
+                            proxy_url = proxy.url
+                            print(f"  ✓ Найден прокси для аккаунта: {proxy_url[:50]}...")
+                            break
+                    if not proxy_url:
+                        print(f"  ⚠ Прокси с ID {account.proxy_id} не найден в списке!")
+                
+                # Создать JSON файл для аккаунта с прокси
+                account_json = {
+                    "api_id": account.api_id,
+                    "api_hash": account.api_hash,
+                    "phone": account.phone
+                }
+                if proxy_url:
+                    account_json["proxy"] = proxy_url
+                    print(f"  ✓ Прокси добавлен в JSON: {proxy_url[:50]}...")
+                
+                account_configs[account.session_name] = account_json
             
             # Записать api_map.txt
             if api_map_lines:
@@ -273,12 +291,16 @@ class CampaignRunner:
             else:
                 print(f"⚠ Нет активных аккаунтов для api_map.txt!")
             
-            # Записать proxies.txt
-            if proxies:
-                proxies_path = os.path.join(campaign_dir, "proxies.txt")
-                with open(proxies_path, 'w', encoding='utf-8') as f:
-                    f.write('\n'.join(proxies))
-                print(f"✓ Создан proxies.txt с {len(proxies)} прокси")
+            # Создать JSON файлы для каждого аккаунта
+            data_dir = os.path.join(project_root, "data")
+            os.makedirs(data_dir, exist_ok=True)
+            
+            for session_name, config in account_configs.items():
+                json_path = os.path.join(data_dir, f"{session_name}.json")
+                with open(json_path, 'w', encoding='utf-8') as f:
+                    json.dump(config, f, indent=2)
+                proxy_info = config.get('proxy', 'no proxy')[:50]
+                print(f"✓ Создан {session_name}.json с прокси: {proxy_info}")
             
             # Создать config.json
             config = {

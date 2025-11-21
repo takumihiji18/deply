@@ -26,6 +26,7 @@ function AccountsManager({ campaign, onUpdate }) {
   const [showProxyForm, setShowProxyForm] = useState(false);
   const [newProxyUrl, setNewProxyUrl] = useState('');
   const [newProxyName, setNewProxyName] = useState('');
+  const [proxySearchTerms, setProxySearchTerms] = useState({}); // Поиск для каждого аккаунта
 
   useEffect(() => {
     loadAccounts();
@@ -447,36 +448,61 @@ function AccountsManager({ campaign, onUpdate }) {
             <tbody>
               {accounts.map(account => {
                 const selectedProxy = proxies.find(p => p.id === account.proxy_id);
+                const searchTerm = (proxySearchTerms[account.session_name] || '').toLowerCase();
+                const filteredProxies = proxies.filter(proxy => {
+                  const name = proxy.name || proxy.url;
+                  return name.toLowerCase().includes(searchTerm);
+                });
+                
                 return (
                   <tr key={account.session_name}>
                     <td>{account.session_name}</td>
                     <td>{account.api_id}</td>
                     <td>{account.phone || '-'}</td>
                     <td>
-                      <select
-                        value={account.proxy_id || ''}
-                        onChange={(e) => handleAssignProxyToAccount(account.session_name, e.target.value || null)}
-                        style={{
-                          padding: '6px 10px',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '4px',
-                          fontSize: '13px',
-                          width: '100%',
-                          maxWidth: '300px'
-                        }}
-                      >
-                        <option value="">Без прокси</option>
-                        {proxies.map(proxy => {
-                          const usage = proxyUsage[proxy.id] || 0;
-                          const displayName = proxy.name || proxy.url;
-                          const label = `${displayName} (${usage} ${usage === 1 ? 'аккаунт' : usage > 1 && usage < 5 ? 'аккаунта' : 'аккаунтов'})`;
-                          return (
-                            <option key={proxy.id} value={proxy.id}>
-                              {label}
-                            </option>
-                          );
-                        })}
-                      </select>
+                      <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                        <input
+                          type="text"
+                          placeholder="🔍 Поиск прокси..."
+                          value={proxySearchTerms[account.session_name] || ''}
+                          onChange={(e) => setProxySearchTerms({
+                            ...proxySearchTerms,
+                            [account.session_name]: e.target.value
+                          })}
+                          style={{
+                            padding: '4px 8px',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            width: '100%',
+                            maxWidth: '300px'
+                          }}
+                        />
+                        <select
+                          value={account.proxy_id || ''}
+                          onChange={(e) => handleAssignProxyToAccount(account.session_name, e.target.value || null)}
+                          style={{
+                            padding: '6px 10px',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '4px',
+                            fontSize: '13px',
+                            width: '100%',
+                            maxWidth: '300px'
+                          }}
+                        >
+                          <option value="">Без прокси</option>
+                          {filteredProxies.map(proxy => {
+                            const usage = proxyUsage[proxy.id] || 0;
+                            const displayName = proxy.name || proxy.url;
+                            const label = `${displayName} (${usage} ${usage === 1 ? 'аккаунт' : usage > 1 && usage < 5 ? 'аккаунта' : 'аккаунтов'})`;
+                            return (
+                              <option key={proxy.id} value={proxy.id}>
+                                {label}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
                       {selectedProxy && (
                         <div style={{fontSize: '11px', color: '#64748b', marginTop: '4px', fontFamily: 'monospace'}}>
                           {selectedProxy.url}
