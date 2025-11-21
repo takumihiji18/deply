@@ -9,7 +9,7 @@ const getApiUrl = () => {
   
   // Если production (собранное приложение на Timeweb)
   if (process.env.NODE_ENV === 'production') {
-    return 'https://takumihiji18-deply-41b3.twc1.net';
+    return 'https://takumihiji18-deply-4ce5.twc1.net';
   }
   
   // Для разработки используем localhost
