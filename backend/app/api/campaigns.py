@@ -32,8 +32,12 @@ async def create_campaign(campaign_data: CampaignCreate):
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
     
     # Создаем директорию для кампании (АБСОЛЮТНЫЙ путь)
-    work_folder = os.path.join(project_root, "campaigns_runtime", campaign_id, "data")
-    processed_file = os.path.join(project_root, "campaigns_runtime", campaign_id, "processed_clients.txt")
+    campaign_dir = os.path.join(project_root, "campaigns", campaign_id)
+    work_folder = os.path.join(campaign_dir, "data")
+    processed_file = os.path.join(campaign_dir, "processed_clients.txt")
+    
+    # Создаем директории
+    os.makedirs(work_folder, exist_ok=True)
     
     # Применяем дефолтные telegram настройки если не переданы
     telegram_settings = campaign_data.telegram_settings or TelegramSettings()
@@ -50,6 +54,11 @@ async def create_campaign(campaign_data: CampaignCreate):
     )
     
     if await db.save_campaign(campaign):
+        # Создаем файл processed_clients.txt с дефолтными ботами
+        if not os.path.exists(processed_file):
+            with open(processed_file, 'w', encoding='utf-8') as f:
+                f.write("178220800 | SpamBot\n")
+                f.write("5314653481 | PremiumBot\n")
         return campaign
     
     raise HTTPException(status_code=500, detail="Failed to create campaign")
@@ -132,18 +141,30 @@ async def stop_campaign(campaign_id: str):
 @router.get("/{campaign_id}/status")
 async def get_campaign_status(campaign_id: str):
     """Получить статус кампании"""
-    campaign = await db.get_campaign(campaign_id)
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    
-    is_running = campaign_runner.is_running(campaign_id)
-    
-    return {
-        "campaign_id": campaign_id,
-        "status": campaign.status,
-        "is_running": is_running,
-        "updated_at": campaign.updated_at
-    }
+    try:
+        campaign = await db.get_campaign(campaign_id)
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        
+        is_running = campaign_runner.is_running(campaign_id)
+        
+        return {
+            "campaign_id": campaign_id,
+            "status": campaign.status,
+            "is_running": is_running,
+            "updated_at": campaign.updated_at
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Логируем ошибку и возвращаем безопасный ответ
+        print(f"ERROR in get_campaign_status: {e!r}")
+        return {
+            "campaign_id": campaign_id,
+            "status": "unknown",
+            "is_running": False,
+            "error": str(e)
+        }
 
 
 @router.get("/{campaign_id}/logs")

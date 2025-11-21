@@ -9,9 +9,16 @@ from .models import Campaign, CampaignStatus, TelegramSettings, OpenAISettings
 class Database:
     """Простая файловая база данных для кампаний"""
     
-    def __init__(self, campaigns_dir: str = "campaigns"):
+    def __init__(self, campaigns_dir: str = "campaigns_metadata"):
+        # Преобразуем в абсолютный путь относительно backend/app
+        if not os.path.isabs(campaigns_dir):
+            current_file = os.path.abspath(__file__)
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))
+            campaigns_dir = os.path.join(project_root, campaigns_dir)
+        
         self.campaigns_dir = campaigns_dir
         os.makedirs(campaigns_dir, exist_ok=True)
+        print(f"Database initialized: campaigns_dir = {campaigns_dir}")
     
     def _campaign_path(self, campaign_id: str) -> str:
         return os.path.join(self.campaigns_dir, f"{campaign_id}.json")
