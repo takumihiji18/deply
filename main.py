@@ -1003,32 +1003,35 @@ async def setup_clients():
             if os.path.exists(old_path + ".session"):
                 session_path = old_path
         
-        # Получаем API credentials и proxy - ищем в обеих папках
+        # Получаем API credentials
         creds = api_map.get(name)
         json_proxy = None  # Прокси из JSON файла
         
-        if not creds:
-            # Сначала ищем в папке sessions
-            json_path = os.path.join(SESSIONS_DIR, f"{name}.json")
-            if not os.path.exists(json_path):
-                # Потом в старой папке data
-                json_path = os.path.join(DATA_DIR, f"{name}.json")
-            if os.path.exists(json_path):
-                try:
-                    with open(json_path, "r", encoding="utf-8") as jf:
-                        jdata = json.load(jf)
+        # ВСЕГДА пытаемся прочитать JSON (для прокси даже если есть api_map)
+        json_path = os.path.join(SESSIONS_DIR, f"{name}.json")
+        if not os.path.exists(json_path):
+            # Потом в старой папке data
+            json_path = os.path.join(DATA_DIR, f"{name}.json")
+        
+        if os.path.exists(json_path):
+            try:
+                with open(json_path, "r", encoding="utf-8") as jf:
+                    jdata = json.load(jf)
+                
+                # Если нет creds из api_map - берем из JSON
+                if not creds:
                     app_id = jdata.get("app_id") or jdata.get("api_id")
                     app_hash = jdata.get("app_hash") or jdata.get("api_hash")
                     if app_id and app_hash:
                         creds = (int(app_id), app_hash)
                         log_info(f"{name}: loaded api_id/hash from {json_path}")
-                    
-                    # Проверяем наличие прокси в JSON
-                    if jdata.get("proxy") and jdata["proxy"] != "null":
-                        json_proxy = jdata["proxy"]
-                        log_info(f"{name}: found proxy in JSON: {json_proxy}")
-                except Exception as e:
-                    log_error(f"{name}: failed to read {json_path}: {e!r}")
+                
+                # Проверяем наличие прокси в JSON (ВСЕГДА)
+                if jdata.get("proxy") and jdata["proxy"] != "null":
+                    json_proxy = jdata["proxy"]
+                    log_info(f"{name}: found proxy in JSON: {json_proxy}")
+            except Exception as e:
+                log_error(f"{name}: failed to read {json_path}: {e!r}")
         
         if not creds:
             log_error(f"{name}: missing API creds, skipped")
