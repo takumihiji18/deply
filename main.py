@@ -1079,9 +1079,10 @@ async def setup_clients():
                 )
                 proxy_ok = False
         else:
-            log_info(f"{name}: no proxy configured, will run without proxy")
-            proxy_required = False
-            proxy_ok = True  # Нет прокси = нормальная работа
+            # КРИТИЧНО: Если прокси не настроена - ПРОПУСКАЕМ аккаунт!
+            log_error(f"⚠️ {name}: ПРОКСИ НЕ НАСТРОЕНА! Аккаунт будет ПРОПУЩЕН для безопасности.")
+            proxy_required = True  # Прокси ОБЯЗАТЕЛЬНА
+            proxy_ok = False  # Прокси НЕ работает (её нет)
         
         # Сохраняем статус прокси для этой сессии
         PROXY_STATUS[name] = {

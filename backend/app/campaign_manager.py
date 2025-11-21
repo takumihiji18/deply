@@ -291,16 +291,17 @@ class CampaignRunner:
             else:
                 print(f"⚠ Нет активных аккаунтов для api_map.txt!")
             
-            # Создать JSON файлы для каждого аккаунта
-            data_dir = os.path.join(project_root, "data")
-            os.makedirs(data_dir, exist_ok=True)
+            # Создать JSON файлы для каждого аккаунта В CAMPAIGN_DIR/data/
+            campaign_data_dir = os.path.join(campaign_dir, "data")
+            os.makedirs(campaign_data_dir, exist_ok=True)
             
             for session_name, config in account_configs.items():
-                json_path = os.path.join(data_dir, f"{session_name}.json")
+                json_path = os.path.join(campaign_data_dir, f"{session_name}.json")
                 with open(json_path, 'w', encoding='utf-8') as f:
                     json.dump(config, f, indent=2)
-                proxy_info = config.get('proxy', 'no proxy')[:50]
+                proxy_info = config.get('proxy', 'no proxy')[:50] if config.get('proxy') else 'NO PROXY'
                 print(f"✓ Создан {session_name}.json с прокси: {proxy_info}")
+                print(f"  Путь: {json_path}")
             
             # Создать config.json
             config = {
