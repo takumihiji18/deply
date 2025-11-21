@@ -1,7 +1,10 @@
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import FileResponse
 from typing import List
 import uuid
 import os
+import shutil
+import tempfile
 from datetime import datetime
 
 from ..models import (
@@ -232,5 +235,36 @@ async def fix_campaign_paths(campaign_id: str):
         }
     
     raise HTTPException(status_code=500, detail="Failed to update paths")
+
+
+@router.get("/{campaign_id}/download-data")
+async def download_campaign_data(campaign_id: str):
+    """Скачать все данные кампании (диалоги, обработанные клиенты)"""
+    # Определить корень проекта
+    current_file = os.path.abspath(__file__)
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+    
+    # Путь к данным кампании
+    campaign_dir = os.path.join(project_root, "campaigns_runtime", campaign_id)
+    
+    if not os.path.exists(campaign_dir):
+        raise HTTPException(status_code=404, detail="Campaign data not found")
+    
+    # Создать временный ZIP архив
+    temp_dir = tempfile.mkdtemp()
+    zip_path = os.path.join(temp_dir, f"campaign_{campaign_id}_data")
+    
+    try:
+        # Создаём ZIP архив
+        shutil.make_archive(zip_path, 'zip', campaign_dir)
+        zip_file = f"{zip_path}.zip"
+        
+        return FileResponse(
+            path=zip_file,
+            filename=f"campaign_{campaign_id}_backup.zip",
+            media_type='application/zip'
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create backup: {str(e)}")
 
 
