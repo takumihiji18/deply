@@ -195,3 +195,42 @@ async def get_campaign_stats(campaign_id: str):
     return stats
 
 
+@router.post("/{campaign_id}/fix-paths")
+async def fix_campaign_paths(campaign_id: str):
+    """ВРЕМЕННЫЙ эндпоинт для исправления путей старой кампании"""
+    campaign = await db.get_campaign(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Определить корень проекта
+    current_file = os.path.abspath(__file__)
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+    
+    # Новые пути
+    campaign_dir = os.path.join(project_root, "campaigns_runtime", campaign_id)
+    work_folder = os.path.join(campaign_dir, "data")
+    processed_file = os.path.join(campaign_dir, "processed_clients.txt")
+    
+    # Обновляем пути
+    old_work_folder = campaign.work_folder
+    old_processed_file = campaign.processed_clients_file
+    
+    campaign.work_folder = work_folder
+    campaign.processed_clients_file = processed_file
+    
+    if await db.save_campaign(campaign):
+        return {
+            "status": "fixed",
+            "old_paths": {
+                "work_folder": old_work_folder,
+                "processed_file": old_processed_file
+            },
+            "new_paths": {
+                "work_folder": work_folder,
+                "processed_file": processed_file
+            }
+        }
+    
+    raise HTTPException(status_code=500, detail="Failed to update paths")
+
+
