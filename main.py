@@ -1171,12 +1171,16 @@ async def setup_clients():
             continue
         
         # Создаем клиент
+        # ВАЖНО: connection_retries=1 - только 1 попытка подключения без retry
         try:
             cl = TelegramClient(
                 session_path,
                 api_id,
                 api_hash,
-                proxy=proxy_dict
+                proxy=proxy_dict,
+                connection_retries=1,  # Только 1 попытка подключения!
+                retry_delay=0,         # Без задержки
+                timeout=10             # Таймаут 10 секунд
             )
             clients.append((cl, name))
         except Exception as e:
@@ -1241,7 +1245,13 @@ async def main():
                             except:
                                 pass
                             
-                            cl = TelegramClient(session_path, api_id, api_hash, proxy=proxy_dict)
+                            cl = TelegramClient(
+                                session_path, api_id, api_hash, 
+                                proxy=proxy_dict,
+                                connection_retries=1,
+                                retry_delay=0,
+                                timeout=10
+                            )
                             # Обновляем клиент в списке
                             for i, (c, n) in enumerate(clients):
                                 if n == name:
