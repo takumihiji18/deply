@@ -437,18 +437,21 @@ def parse_proxy_url(url: str | None):
         log_error(f"Failed to parse proxy URL {url}: {e!r}")
         return None
 
-async def check_proxy_connection(proxy_dict: dict, timeout: int = 10) -> bool:
+async def check_proxy_connection(proxy_dict: dict, timeout: int = 5) -> bool:
     """
     Проверяет подключение к Telegram API через прокси.
     Делает простой HTTP запрос к Telegram для проверки доступности.
+    
+    ВАЖНО: Одна попытка, быстрый таймаут (5 сек).
+    При неудаче - сразу возвращает False без повторов.
     """
     if not proxy_dict:
         return True  # Нет прокси - считаем что подключение есть
     
+    addr = proxy_dict.get('addr', 'unknown')
+    port = proxy_dict.get('port', 0)
+    
     try:
-        # Извлекаем параметры из словаря
-        addr = proxy_dict.get('addr', 'unknown')
-        port = proxy_dict.get('port', 0)
         username = proxy_dict.get('username')
         password = proxy_dict.get('password')
         
@@ -461,12 +464,15 @@ async def check_proxy_connection(proxy_dict: dict, timeout: int = 10) -> bool:
         # Проверяем доступность Telegram API
         test_url = "https://api.telegram.org"
         
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session:
+        # Короткий таймаут, без retry
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=timeout, connect=3)
+        ) as session:
             async with session.get(test_url, proxy=proxy_url) as resp:
                 return resp.status in [200, 401, 404]  # Любой ответ от сервера = прокси работает
     
     except Exception as e:
-        log_error(f"Proxy check failed for {addr}:{port}: {e!r}")
+        log_error(f"❌ Proxy check FAILED for {addr}:{port}: {e!r}")
         return False
 
 def load_proxies_from_file(path: str = "proxies.txt") -> list[str]:
@@ -1254,6 +1260,20 @@ async def main():
                 
                 # Если прокси не требуется или работает - продолжаем обработку
                 if not proxy_required or proxy_ok:
+                    # БЫСТРАЯ проверка прокси перед подключением (1 попытка, 5 сек)
+                    if proxy_dict:
+                        addr = proxy_dict.get('addr', 'unknown')
+                        port = proxy_dict.get('port', 0)
+                        log_info(f"{name}: быстрая проверка прокси {addr}:{port}...")
+                        
+                        if not await check_proxy_connection(proxy_dict):
+                            log_error(
+                                f"⏭ {name}: прокси недоступна - ПРОПУСК аккаунта\n"
+                                f"  Прокси: {addr}:{port}"
+                            )
+                            PROXY_STATUS[name]["proxy_ok"] = False
+                            continue  # Сразу пропускаем, без retry
+                    
                     # Подключаемся
                     await cl.start()
                     me = await cl.get_me()
@@ -1319,36 +1339,22 @@ async def main():
                 )
             
             except asyncio.CancelledError as e:
-                log_error(
-                    f"⚠️ {name}: ОПЕРАЦИЯ ОТМЕНЕНА (CancelledError)!\n"
-                    f"  ⚠️ Возможные причины:\n"
-                    f"  1. Прокси отключилась во время подключения\n"
-                    f"  2. Telegram разорвал соединение\n"
-                    f"  3. Сетевой таймаут\n"
-                    f"  ⏭ Пропускаем аккаунт, продолжаем работу...\n"
-                    f"  Error: {e!r}"
-                )
-                # Помечаем прокси как неработающую для повторной проверки
+                log_error(f"⏭ {name}: CancelledError - ПРОПУСК (прокси/сеть)")
+                if name in PROXY_STATUS:
+                    PROXY_STATUS[name]["proxy_ok"] = False
+            
+            except asyncio.TimeoutError as e:
+                log_error(f"⏭ {name}: Timeout - ПРОПУСК (прокси не отвечает)")
                 if name in PROXY_STATUS:
                     PROXY_STATUS[name]["proxy_ok"] = False
             
             except ConnectionError as e:
-                log_error(
-                    f"⚠️ {name}: ОШИБКА СОЕДИНЕНИЯ!\n"
-                    f"  ⚠️ Не удалось установить соединение с Telegram\n"
-                    f"  ⏭ Пропускаем аккаунт, продолжаем работу...\n"
-                    f"  Error: {e!r}"
-                )
+                log_error(f"⏭ {name}: ConnectionError - ПРОПУСК (нет соединения)")
                 if name in PROXY_STATUS:
                     PROXY_STATUS[name]["proxy_ok"] = False
             
             except OSError as e:
-                log_error(
-                    f"⚠️ {name}: СЕТЕВАЯ ОШИБКА!\n"
-                    f"  ⚠️ Проблема с сетевым подключением\n"
-                    f"  ⏭ Пропускаем аккаунт, продолжаем работу...\n"
-                    f"  Error: {e!r}"
-                )
+                log_error(f"⏭ {name}: OSError - ПРОПУСК (сетевая ошибка: {type(e).__name__})")
                 if name in PROXY_STATUS:
                     PROXY_STATUS[name]["proxy_ok"] = False
             
