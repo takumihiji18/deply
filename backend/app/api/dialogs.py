@@ -386,7 +386,8 @@ async def get_campaign_dialogs(campaign_id: str):
         if filename.endswith('.jsonl'):
             try:
                 # Парсим имя файла: sessionname_userid_username.jsonl
-                parts = filename.replace('.jsonl', '').split('_')
+                # ВАЖНО: split с maxsplit=2, т.к. username может содержать _
+                parts = filename.replace('.jsonl', '').split('_', 2)
                 
                 if len(parts) >= 2:
                     session_name = parts[0]
@@ -463,8 +464,9 @@ async def get_dialog(campaign_id: str, session_name: str, user_id: int):
     filepath = os.path.join(convos_dir, possible_files[0])
     
     # Парсим имя файла для username
+    # ВАЖНО: split с maxsplit=2, т.к. username может содержать _
     filename = possible_files[0].replace('.jsonl', '')
-    parts = filename.split('_')
+    parts = filename.split('_', 2)
     username = parts[2] if len(parts) > 2 else None
     
     # Читаем сообщения
