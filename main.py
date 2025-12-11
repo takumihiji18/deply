@@ -615,6 +615,47 @@ async def _collect_incoming_slice(
     res.reverse()
     return res
 
+
+async def _load_telegram_history(
+    client: TelegramClient,
+    chat_id: int,
+    limit: int = None
+) -> list[dict]:
+    """
+    Загружает историю диалога из Telegram для контекста GPT.
+    Включает ВСЕ сообщения - и входящие, и исходящие.
+    
+    Возвращает список в формате GPT messages:
+    [{"role": "user"|"assistant", "content": "текст"}, ...]
+    """
+    if limit is None:
+        limit = TELEGRAM_HISTORY_LIMIT
+    
+    history = []
+    
+    try:
+        messages = await client.get_messages(chat_id, limit=limit)
+        
+        # Сообщения приходят от новых к старым, разворачиваем
+        messages = list(reversed(messages))
+        
+        for m in messages:
+            text = (m.text or "").strip()
+            if not text:
+                continue
+            
+            # m.out = True если это наше исходящее сообщение
+            role = "assistant" if m.out else "user"
+            history.append({
+                "role": role,
+                "content": text
+            })
+    
+    except Exception as e:
+        log_error(f"_load_telegram_history error for chat {chat_id}: {e!r}")
+    
+    return history
+
 async def _reply_once_for_batch(
     client: TelegramClient, 
     uid: int, 
@@ -650,10 +691,22 @@ async def _reply_once_for_batch(
     else:
         log_info(f"{session_name}: ⚠️ WARNING: no read-reply delay configured (READ_REPLY_DELAY_RANGE={READ_REPLY_DELAY_RANGE})")
     
-    # Загружаем историю разговора
-    history = convo_load(session_name, uid, username)
+    # Загружаем историю разговора из Telegram (включая наше первое сообщение!)
+    telegram_history = await _load_telegram_history(client, uid)
     
-    # Формируем текст от пользователя
+    # Также загружаем локальную историю (на случай если Telegram история неполная)
+    local_history = convo_load(session_name, uid, username)
+    
+    # Используем Telegram историю как основную (там есть первое сообщение)
+    # Если Telegram история пустая - используем локальную
+    if telegram_history:
+        history = telegram_history
+        log_info(f"{session_name}: loaded {len(history)} messages from Telegram history for context")
+    else:
+        history = local_history
+        log_info(f"{session_name}: using local history ({len(history)} messages)")
+    
+    # Формируем текст от пользователя (новые сообщения)
     joined_user_text = "\n\n".join(
         f"[{m.date.strftime('%Y-%m-%d %H:%M:%S')}] {m.text.strip()}" 
         for m in batch if (m.text or "").strip()
@@ -661,7 +714,18 @@ async def _reply_once_for_batch(
     
     # Формируем запрос к GPT
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    messages.extend(history)
+    
+    # Добавляем историю, но исключаем последние сообщения которые уже в batch
+    # Это предотвращает дублирование
+    if telegram_history:
+        # Берём историю кроме последних N сообщений (где N = len(batch))
+        # т.к. batch содержит последние входящие сообщения
+        history_without_batch = history[:-len(batch)] if len(batch) > 0 else history
+        messages.extend(history_without_batch)
+    else:
+        messages.extend(history)
+    
+    # Добавляем новые сообщения от пользователя
     messages.append({"role": "user", "content": joined_user_text})
     
     # Генерируем ответ
