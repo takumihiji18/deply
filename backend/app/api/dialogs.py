@@ -16,149 +16,10 @@ class AddProcessedClientRequest(BaseModel):
 router = APIRouter(prefix="/dialogs", tags=["dialogs"])
 
 
-@router.get("/{campaign_id}", response_model=List[Dialog])
-async def get_campaign_dialogs(campaign_id: str):
-    """Получить все диалоги кампании"""
-    campaign = await db.get_campaign(campaign_id)
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    
-    dialogs = []
-    
-    # Преобразуем относительный путь в абсолютный
-    work_folder = campaign.work_folder
-    if not os.path.isabs(work_folder):
-        current_file = os.path.abspath(__file__)
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
-        work_folder = os.path.join(project_root, work_folder)
-    
-    convos_dir = os.path.join(work_folder, "convos")
-    
-    if not os.path.exists(convos_dir):
-        return dialogs
-    
-    # Читаем все файлы диалогов
-    for filename in os.listdir(convos_dir):
-        if filename.endswith('.jsonl'):
-            try:
-                # Парсим имя файла: sessionname_userid_username.jsonl
-                parts = filename.replace('.jsonl', '').split('_')
-                
-                if len(parts) >= 2:
-                    session_name = parts[0]
-                    user_id = int(parts[1])
-                    username = parts[2] if len(parts) > 2 else None
-                    
-                    # Читаем сообщения
-                    messages = []
-                    filepath = os.path.join(convos_dir, filename)
-                    
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        for line in f:
-                            if line.strip():
-                                msg_data = json.loads(line)
-                                messages.append(DialogMessage(
-                                    role=msg_data['role'],
-                                    content=msg_data['content']
-                                ))
-                    
-                    dialogs.append(Dialog(
-                        session_name=session_name,
-                        user_id=user_id,
-                        username=username,
-                        messages=messages
-                    ))
-            except Exception as e:
-                print(f"Error reading dialog {filename}: {e}")
-                continue
-    
-    return dialogs
-
-
-@router.get("/{campaign_id}/{session_name}/{user_id}", response_model=Dialog)
-async def get_dialog(campaign_id: str, session_name: str, user_id: int):
-    """Получить конкретный диалог"""
-    campaign = await db.get_campaign(campaign_id)
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    
-    # Преобразуем относительный путь в абсолютный
-    work_folder = campaign.work_folder
-    if not os.path.isabs(work_folder):
-        current_file = os.path.abspath(__file__)
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
-        work_folder = os.path.join(project_root, work_folder)
-    
-    convos_dir = os.path.join(work_folder, "convos")
-    
-    # Попробуем найти файл с или без username
-    possible_files = [
-        f for f in os.listdir(convos_dir)
-        if f.startswith(f"{session_name}_{user_id}") and f.endswith('.jsonl')
-    ] if os.path.exists(convos_dir) else []
-    
-    if not possible_files:
-        raise HTTPException(status_code=404, detail="Dialog not found")
-    
-    filepath = os.path.join(convos_dir, possible_files[0])
-    
-    # Парсим имя файла для username
-    filename = possible_files[0].replace('.jsonl', '')
-    parts = filename.split('_')
-    username = parts[2] if len(parts) > 2 else None
-    
-    # Читаем сообщения
-    messages = []
-    with open(filepath, 'r', encoding='utf-8') as f:
-        for line in f:
-            if line.strip():
-                msg_data = json.loads(line)
-                messages.append(DialogMessage(
-                    role=msg_data['role'],
-                    content=msg_data['content']
-                ))
-    
-    return Dialog(
-        session_name=session_name,
-        user_id=user_id,
-        username=username,
-        messages=messages
-    )
-
-
-@router.delete("/{campaign_id}/{session_name}/{user_id}")
-async def delete_dialog(campaign_id: str, session_name: str, user_id: int):
-    """Удалить диалог"""
-    campaign = await db.get_campaign(campaign_id)
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    
-    # Преобразуем относительный путь в абсолютный
-    work_folder = campaign.work_folder
-    if not os.path.isabs(work_folder):
-        current_file = os.path.abspath(__file__)
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
-        work_folder = os.path.join(project_root, work_folder)
-    
-    convos_dir = os.path.join(work_folder, "convos")
-    
-    if not os.path.exists(convos_dir):
-        raise HTTPException(status_code=404, detail="Dialog not found")
-    
-    # Найти и удалить файл
-    deleted = False
-    for filename in os.listdir(convos_dir):
-        if filename.startswith(f"{session_name}_{user_id}") and filename.endswith('.jsonl'):
-            filepath = os.path.join(convos_dir, filename)
-            os.remove(filepath)
-            deleted = True
-            break
-    
-    if deleted:
-        return {"status": "deleted"}
-    
-    raise HTTPException(status_code=404, detail="Dialog not found")
-
+# ============================================================
+# ВАЖНО: Роуты с /processed/ должны быть ПЕРЕД общими роутами
+# иначе FastAPI интерпретирует "processed" как session_name
+# ============================================================
 
 @router.get("/{campaign_id}/processed", response_model=List[ProcessedClient])
 async def get_processed_clients(campaign_id: str):
@@ -411,4 +272,151 @@ async def upload_dialog_history(campaign_id: str, file: UploadFile = File(...)):
     
     return {"status": "uploaded", "filename": file.filename}
 
+
+# ============================================================
+# Общие роуты для диалогов (ПОСЛЕ специфичных роутов /processed/)
+# ============================================================
+
+@router.get("/{campaign_id}", response_model=List[Dialog])
+async def get_campaign_dialogs(campaign_id: str):
+    """Получить все диалоги кампании"""
+    campaign = await db.get_campaign(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    dialogs = []
+    
+    # Преобразуем относительный путь в абсолютный
+    work_folder = campaign.work_folder
+    if not os.path.isabs(work_folder):
+        current_file = os.path.abspath(__file__)
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+        work_folder = os.path.join(project_root, work_folder)
+    
+    convos_dir = os.path.join(work_folder, "convos")
+    
+    if not os.path.exists(convos_dir):
+        return dialogs
+    
+    # Читаем все файлы диалогов
+    for filename in os.listdir(convos_dir):
+        if filename.endswith('.jsonl'):
+            try:
+                # Парсим имя файла: sessionname_userid_username.jsonl
+                parts = filename.replace('.jsonl', '').split('_')
+                
+                if len(parts) >= 2:
+                    session_name = parts[0]
+                    user_id = int(parts[1])
+                    username = parts[2] if len(parts) > 2 else None
+                    
+                    # Читаем сообщения
+                    messages = []
+                    filepath = os.path.join(convos_dir, filename)
+                    
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            if line.strip():
+                                msg_data = json.loads(line)
+                                messages.append(DialogMessage(
+                                    role=msg_data['role'],
+                                    content=msg_data['content']
+                                ))
+                    
+                    dialogs.append(Dialog(
+                        session_name=session_name,
+                        user_id=user_id,
+                        username=username,
+                        messages=messages
+                    ))
+            except Exception as e:
+                print(f"Error reading dialog {filename}: {e}")
+                continue
+    
+    return dialogs
+
+
+@router.get("/{campaign_id}/{session_name}/{user_id}", response_model=Dialog)
+async def get_dialog(campaign_id: str, session_name: str, user_id: int):
+    """Получить конкретный диалог"""
+    campaign = await db.get_campaign(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Преобразуем относительный путь в абсолютный
+    work_folder = campaign.work_folder
+    if not os.path.isabs(work_folder):
+        current_file = os.path.abspath(__file__)
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+        work_folder = os.path.join(project_root, work_folder)
+    
+    convos_dir = os.path.join(work_folder, "convos")
+    
+    # Попробуем найти файл с или без username
+    possible_files = [
+        f for f in os.listdir(convos_dir)
+        if f.startswith(f"{session_name}_{user_id}") and f.endswith('.jsonl')
+    ] if os.path.exists(convos_dir) else []
+    
+    if not possible_files:
+        raise HTTPException(status_code=404, detail="Dialog not found")
+    
+    filepath = os.path.join(convos_dir, possible_files[0])
+    
+    # Парсим имя файла для username
+    filename = possible_files[0].replace('.jsonl', '')
+    parts = filename.split('_')
+    username = parts[2] if len(parts) > 2 else None
+    
+    # Читаем сообщения
+    messages = []
+    with open(filepath, 'r', encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                msg_data = json.loads(line)
+                messages.append(DialogMessage(
+                    role=msg_data['role'],
+                    content=msg_data['content']
+                ))
+    
+    return Dialog(
+        session_name=session_name,
+        user_id=user_id,
+        username=username,
+        messages=messages
+    )
+
+
+@router.delete("/{campaign_id}/{session_name}/{user_id}")
+async def delete_dialog(campaign_id: str, session_name: str, user_id: int):
+    """Удалить диалог"""
+    campaign = await db.get_campaign(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Преобразуем относительный путь в абсолютный
+    work_folder = campaign.work_folder
+    if not os.path.isabs(work_folder):
+        current_file = os.path.abspath(__file__)
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+        work_folder = os.path.join(project_root, work_folder)
+    
+    convos_dir = os.path.join(work_folder, "convos")
+    
+    if not os.path.exists(convos_dir):
+        raise HTTPException(status_code=404, detail="Dialog not found")
+    
+    # Найти и удалить файл
+    deleted = False
+    for filename in os.listdir(convos_dir):
+        if filename.startswith(f"{session_name}_{user_id}") and filename.endswith('.jsonl'):
+            filepath = os.path.join(convos_dir, filename)
+            os.remove(filepath)
+            deleted = True
+            break
+    
+    if deleted:
+        return {"status": "deleted"}
+    
+    raise HTTPException(status_code=404, detail="Dialog not found")
 
