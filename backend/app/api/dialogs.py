@@ -3,8 +3,9 @@ from pydantic import BaseModel
 from typing import List, Optional
 import os
 import json
+from datetime import datetime
 
-from ..models import Dialog, DialogMessage, ProcessedClient
+from ..models import Dialog, DialogMessage, ProcessedClient, DialogStatus
 from ..database import db
 
 
@@ -13,7 +14,54 @@ class AddProcessedClientRequest(BaseModel):
     username: Optional[str] = None
 
 
+class UpdateDialogStatusRequest(BaseModel):
+    status: DialogStatus
+
+
 router = APIRouter(prefix="/dialogs", tags=["dialogs"])
+
+
+# ============================================================
+# Хелпер для работы со статусами диалогов
+# ============================================================
+
+def _get_statuses_file(campaign_dir: str) -> str:
+    """Возвращает путь к файлу статусов диалогов"""
+    return os.path.join(campaign_dir, "dialog_statuses.json")
+
+
+def _load_dialog_statuses(campaign_dir: str) -> dict:
+    """Загружает статусы диалогов из файла"""
+    statuses_file = _get_statuses_file(campaign_dir)
+    if os.path.exists(statuses_file):
+        try:
+            with open(statuses_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            pass
+    return {}
+
+
+def _save_dialog_statuses(campaign_dir: str, statuses: dict):
+    """Сохраняет статусы диалогов в файл"""
+    statuses_file = _get_statuses_file(campaign_dir)
+    os.makedirs(os.path.dirname(statuses_file), exist_ok=True)
+    with open(statuses_file, 'w', encoding='utf-8') as f:
+        json.dump(statuses, f, ensure_ascii=False, indent=2)
+
+
+def _get_dialog_key(session_name: str, user_id: int) -> str:
+    """Возвращает ключ для диалога"""
+    return f"{session_name}_{user_id}"
+
+
+def _get_file_modification_time(filepath: str) -> Optional[datetime]:
+    """Возвращает время последней модификации файла"""
+    try:
+        mtime = os.path.getmtime(filepath)
+        return datetime.fromtimestamp(mtime)
+    except:
+        return None
 
 
 # ============================================================
@@ -273,13 +321,45 @@ async def upload_dialog_history(campaign_id: str, file: UploadFile = File(...)):
     return {"status": "uploaded", "filename": file.filename}
 
 
+@router.put("/{campaign_id}/status/{session_name}/{user_id}")
+async def update_dialog_status(
+    campaign_id: str, 
+    session_name: str, 
+    user_id: int, 
+    data: UpdateDialogStatusRequest
+):
+    """Обновить статус диалога (лид/не лид/потом)"""
+    campaign = await db.get_campaign(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Преобразуем относительный путь в абсолютный
+    work_folder = campaign.work_folder
+    if not os.path.isabs(work_folder):
+        current_file = os.path.abspath(__file__)
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+        work_folder = os.path.join(project_root, work_folder)
+    
+    # Загружаем статусы
+    statuses = _load_dialog_statuses(work_folder)
+    
+    # Обновляем статус
+    dialog_key = _get_dialog_key(session_name, user_id)
+    statuses[dialog_key] = data.status.value
+    
+    # Сохраняем
+    _save_dialog_statuses(work_folder, statuses)
+    
+    return {"status": "updated", "dialog_key": dialog_key, "new_status": data.status.value}
+
+
 # ============================================================
 # Общие роуты для диалогов (ПОСЛЕ специфичных роутов /processed/)
 # ============================================================
 
 @router.get("/{campaign_id}", response_model=List[Dialog])
 async def get_campaign_dialogs(campaign_id: str):
-    """Получить все диалоги кампании"""
+    """Получить все диалоги кампании (отсортированные по времени последнего сообщения)"""
     campaign = await db.get_campaign(campaign_id)
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
@@ -297,6 +377,9 @@ async def get_campaign_dialogs(campaign_id: str):
     
     if not os.path.exists(convos_dir):
         return dialogs
+    
+    # Загружаем статусы диалогов
+    statuses = _load_dialog_statuses(work_folder)
     
     # Читаем все файлы диалогов
     for filename in os.listdir(convos_dir):
@@ -323,15 +406,31 @@ async def get_campaign_dialogs(campaign_id: str):
                                     content=msg_data['content']
                                 ))
                     
+                    # Получаем время последней модификации файла
+                    last_message_time = _get_file_modification_time(filepath)
+                    
+                    # Получаем статус диалога
+                    dialog_key = _get_dialog_key(session_name, user_id)
+                    status_str = statuses.get(dialog_key, "none")
+                    try:
+                        status = DialogStatus(status_str)
+                    except:
+                        status = DialogStatus.NONE
+                    
                     dialogs.append(Dialog(
                         session_name=session_name,
                         user_id=user_id,
                         username=username,
-                        messages=messages
+                        messages=messages,
+                        last_message_time=last_message_time,
+                        status=status
                     ))
             except Exception as e:
                 print(f"Error reading dialog {filename}: {e}")
                 continue
+    
+    # Сортируем по времени последнего сообщения (новые первые)
+    dialogs.sort(key=lambda d: d.last_message_time or datetime.min, reverse=True)
     
     return dialogs
 

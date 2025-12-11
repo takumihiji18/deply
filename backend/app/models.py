@@ -92,11 +92,21 @@ class DialogMessage(BaseModel):
     timestamp: Optional[datetime] = None
 
 
+class DialogStatus(str, Enum):
+    """Статус диалога для маркировки лидов"""
+    NONE = "none"  # Не размечен
+    LEAD = "lead"  # Лид (потенциальный клиент)
+    NOT_LEAD = "not_lead"  # Не лид
+    LATER = "later"  # Обработать позже
+
+
 class Dialog(BaseModel):
     session_name: str
     user_id: int
     username: Optional[str] = None
     messages: List[DialogMessage]
+    last_message_time: Optional[datetime] = None  # Время последнего сообщения
+    status: DialogStatus = DialogStatus.NONE  # Статус диалога (лид/не лид/потом)
 
 
 class ProcessedClient(BaseModel):

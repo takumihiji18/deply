@@ -16,6 +16,7 @@ import {
 
 function CampaignTabs({ campaigns, onUpdate }) {
   const [selectedTab, setSelectedTab] = useState(0);
+  const [selectedInnerTab, setSelectedInnerTab] = useState({});  // Сохраняем внутренние вкладки для каждой кампании
   const [statuses, setStatuses] = useState({});
 
   useEffect(() => {
@@ -174,7 +175,10 @@ function CampaignTabs({ campaigns, onUpdate }) {
               </div>
 
               {/* Внутренние вкладки кампании */}
-              <Tabs>
+              <Tabs 
+                selectedIndex={selectedInnerTab[campaign.id] || 0}
+                onSelect={(index) => setSelectedInnerTab(prev => ({...prev, [campaign.id]: index}))}
+              >
                 <TabList>
                   <Tab>Настройки</Tab>
                   <Tab>Аккаунты</Tab>

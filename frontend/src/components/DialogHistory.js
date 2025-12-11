@@ -1,11 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { getCampaignDialogs, deleteDialog, uploadDialogHistory } from '../api/client';
+import { getCampaignDialogs, deleteDialog, uploadDialogHistory, updateDialogStatus } from '../api/client';
+
+// Статусы диалогов
+const DIALOG_STATUSES = {
+  none: { label: '—', color: '#718096', bg: '#f7fafc' },
+  lead: { label: '✅ Лид', color: '#22543d', bg: '#c6f6d5' },
+  not_lead: { label: '❌ Не лид', color: '#742a2a', bg: '#fed7d7' },
+  later: { label: '⏰ Потом', color: '#744210', bg: '#feebc8' }
+};
 
 function DialogHistory({ campaignId }) {
   const [dialogs, setDialogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDialog, setSelectedDialog] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
     loadDialogs();
@@ -30,6 +39,9 @@ function DialogHistory({ campaignId }) {
     try {
       await deleteDialog(campaignId, sessionName, userId);
       await loadDialogs();
+      if (selectedDialog && selectedDialog.session_name === sessionName && selectedDialog.user_id === userId) {
+        setSelectedDialog(null);
+      }
     } catch (err) {
       alert('Ошибка удаления диалога: ' + err.message);
     }
@@ -54,7 +66,50 @@ function DialogHistory({ campaignId }) {
     }
   };
 
+  const handleStatusChange = async (dialog, newStatus) => {
+    try {
+      await updateDialogStatus(campaignId, dialog.session_name, dialog.user_id, newStatus);
+      // Обновляем локальное состояние
+      setDialogs(prev => prev.map(d => 
+        d.session_name === dialog.session_name && d.user_id === dialog.user_id
+          ? { ...d, status: newStatus }
+          : d
+      ));
+      // Обновляем выбранный диалог если он открыт
+      if (selectedDialog && selectedDialog.session_name === dialog.session_name && selectedDialog.user_id === dialog.user_id) {
+        setSelectedDialog({ ...selectedDialog, status: newStatus });
+      }
+    } catch (err) {
+      alert('Ошибка обновления статуса: ' + err.message);
+    }
+  };
+
+  const formatTime = (dateString) => {
+    if (!dateString) return '—';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now - date;
+    
+    // Меньше минуты
+    if (diff < 60000) return 'только что';
+    // Меньше часа
+    if (diff < 3600000) return `${Math.floor(diff / 60000)} мин назад`;
+    // Меньше суток
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)} ч назад`;
+    // Меньше недели
+    if (diff < 604800000) return `${Math.floor(diff / 86400000)} дн назад`;
+    
+    // Дата
+    return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  };
+
   const filteredDialogs = dialogs.filter(dialog => {
+    // Фильтр по статусу
+    if (statusFilter !== 'all' && dialog.status !== statusFilter) {
+      return false;
+    }
+    
+    // Фильтр по поиску
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
     return (
@@ -71,21 +126,32 @@ function DialogHistory({ campaignId }) {
   return (
     <div className="dialog-history">
       <div className="card">
-        <div className="card-header">
+        <div className="card-header" style={{flexWrap: 'wrap', gap: '15px'}}>
           <h2>💬 История диалогов</h2>
-          <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
+          <div style={{display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap'}}>
             <input
               type="text"
               placeholder="Поиск по username, ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={{width: '300px'}}
+              style={{width: '200px'}}
             />
+            <select 
+              value={statusFilter} 
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{padding: '8px 12px', borderRadius: '6px', border: '1px solid #e2e8f0'}}
+            >
+              <option value="all">Все статусы</option>
+              <option value="none">Не размечены</option>
+              <option value="lead">✅ Лиды</option>
+              <option value="not_lead">❌ Не лиды</option>
+              <option value="later">⏰ Потом</option>
+            </select>
             <label 
               className="btn-secondary" 
               style={{cursor: 'pointer', display: 'inline-block', margin: 0}}
             >
-              📤 Загрузить диалог (.jsonl)
+              📤 Загрузить диалог
               <input
                 type="file"
                 accept=".jsonl"
@@ -97,7 +163,7 @@ function DialogHistory({ campaignId }) {
         </div>
 
         <div style={{marginBottom: '15px', padding: '10px', backgroundColor: '#f0f9ff', borderRadius: '6px', fontSize: '14px'}}>
-          <strong>💡 Импорт из обычной программы:</strong> Вы можете загрузить файлы .jsonl с историями диалогов из стандартной версии программы для удобного просмотра здесь.
+          <strong>💡 Подсказка:</strong> Диалоги отсортированы по времени последнего сообщения. Используйте кнопки для разметки лидов.
         </div>
 
         {filteredDialogs.length === 0 ? (
@@ -105,82 +171,168 @@ function DialogHistory({ campaignId }) {
             <p>Нет диалогов</p>
           </div>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Аккаунт</th>
-                <th>Пользователь</th>
-                <th>ID</th>
-                <th>Сообщений</th>
-                <th>Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredDialogs.map(dialog => (
-                <tr key={`${dialog.session_name}_${dialog.user_id}`}>
-                  <td>{dialog.session_name}</td>
-                  <td>{dialog.username ? `@${dialog.username}` : '-'}</td>
-                  <td>{dialog.user_id}</td>
-                  <td>{dialog.messages.length}</td>
-                  <td>
-                    <button
-                      className="btn-secondary"
-                      onClick={() => setSelectedDialog(dialog)}
-                      style={{marginRight: '5px'}}
-                    >
-                      👁 Просмотр
-                    </button>
-                    <button
-                      className="btn-danger"
-                      onClick={() => handleDelete(dialog.session_name, dialog.user_id)}
-                    >
-                      🗑
-                    </button>
-                  </td>
+          <>
+            <div style={{marginBottom: '15px', color: '#718096'}}>
+              Найдено диалогов: <strong>{filteredDialogs.length}</strong>
+            </div>
+            
+            <table>
+              <thead>
+                <tr>
+                  <th>Статус</th>
+                  <th>Последнее сообщение</th>
+                  <th>Аккаунт</th>
+                  <th>Пользователь</th>
+                  <th>Сообщений</th>
+                  <th>Действия</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredDialogs.map(dialog => {
+                  const statusInfo = DIALOG_STATUSES[dialog.status] || DIALOG_STATUSES.none;
+                  return (
+                    <tr key={`${dialog.session_name}_${dialog.user_id}`}>
+                      <td>
+                        <span style={{
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          backgroundColor: statusInfo.bg,
+                          color: statusInfo.color,
+                          fontWeight: '500'
+                        }}>
+                          {statusInfo.label}
+                        </span>
+                      </td>
+                      <td style={{color: '#718096', fontSize: '13px'}}>
+                        {formatTime(dialog.last_message_time)}
+                      </td>
+                      <td>{dialog.session_name}</td>
+                      <td>
+                        {dialog.username ? `@${dialog.username}` : '-'}
+                        <div style={{fontSize: '11px', color: '#a0aec0'}}>ID: {dialog.user_id}</div>
+                      </td>
+                      <td>{dialog.messages.length}</td>
+                      <td>
+                        <div style={{display: 'flex', gap: '5px', flexWrap: 'wrap'}}>
+                          <button
+                            className="btn-secondary"
+                            onClick={() => setSelectedDialog(dialog)}
+                            style={{padding: '5px 10px', fontSize: '12px'}}
+                          >
+                            👁
+                          </button>
+                          <button
+                            className={dialog.status === 'lead' ? 'btn-success' : 'btn-secondary'}
+                            onClick={() => handleStatusChange(dialog, dialog.status === 'lead' ? 'none' : 'lead')}
+                            style={{padding: '5px 10px', fontSize: '12px'}}
+                            title="Отметить как лид"
+                          >
+                            ✅
+                          </button>
+                          <button
+                            className={dialog.status === 'not_lead' ? 'btn-danger' : 'btn-secondary'}
+                            onClick={() => handleStatusChange(dialog, dialog.status === 'not_lead' ? 'none' : 'not_lead')}
+                            style={{padding: '5px 10px', fontSize: '12px'}}
+                            title="Отметить как не лид"
+                          >
+                            ❌
+                          </button>
+                          <button
+                            className={dialog.status === 'later' ? 'btn-warning' : 'btn-secondary'}
+                            onClick={() => handleStatusChange(dialog, dialog.status === 'later' ? 'none' : 'later')}
+                            style={{padding: '5px 10px', fontSize: '12px'}}
+                            title="Обработать позже"
+                          >
+                            ⏰
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </>
         )}
       </div>
 
       {/* Modal для просмотра диалога */}
       {selectedDialog && (
         <div className="modal-overlay" onClick={() => setSelectedDialog(null)}>
-          <div className="modal dialog-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>
-                Диалог с {selectedDialog.username ? `@${selectedDialog.username}` : `ID: ${selectedDialog.user_id}`}
-              </h3>
+          <div 
+            className="modal dialog-modal" 
+            onClick={(e) => e.stopPropagation()}
+            style={{maxWidth: '800px', width: '90%', maxHeight: '85vh'}}
+          >
+            <div className="modal-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '15px', borderBottom: '1px solid #e2e8f0'}}>
+              <div>
+                <h3 style={{margin: 0}}>
+                  Диалог с {selectedDialog.username ? `@${selectedDialog.username}` : `ID: ${selectedDialog.user_id}`}
+                </h3>
+                <div style={{fontSize: '12px', color: '#718096', marginTop: '5px'}}>
+                  Аккаунт: {selectedDialog.session_name} | Последнее сообщение: {formatTime(selectedDialog.last_message_time)}
+                </div>
+              </div>
               <button onClick={() => setSelectedDialog(null)} style={{background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer'}}>
                 ×
               </button>
             </div>
             
-            <div className="dialog-messages">
+            {/* Кнопки статуса в модальном окне */}
+            <div style={{padding: '10px 0', display: 'flex', gap: '10px', borderBottom: '1px solid #e2e8f0'}}>
+              <span style={{color: '#718096', alignSelf: 'center'}}>Статус:</span>
+              <button
+                className={selectedDialog.status === 'lead' ? 'btn-success' : 'btn-secondary'}
+                onClick={() => handleStatusChange(selectedDialog, selectedDialog.status === 'lead' ? 'none' : 'lead')}
+                style={{padding: '6px 12px'}}
+              >
+                ✅ Лид
+              </button>
+              <button
+                className={selectedDialog.status === 'not_lead' ? 'btn-danger' : 'btn-secondary'}
+                onClick={() => handleStatusChange(selectedDialog, selectedDialog.status === 'not_lead' ? 'none' : 'not_lead')}
+                style={{padding: '6px 12px'}}
+              >
+                ❌ Не лид
+              </button>
+              <button
+                className={selectedDialog.status === 'later' ? 'btn-warning' : 'btn-secondary'}
+                onClick={() => handleStatusChange(selectedDialog, selectedDialog.status === 'later' ? 'none' : 'later')}
+                style={{padding: '6px 12px'}}
+              >
+                ⏰ Потом
+              </button>
+            </div>
+            
+            <div className="dialog-messages" style={{
+              maxHeight: '50vh',
+              overflowY: 'auto',
+              padding: '15px 0'
+            }}>
               {selectedDialog.messages.map((msg, idx) => (
                 <div 
                   key={idx} 
                   className={`message ${msg.role}`}
                   style={{
-                    padding: '10px 15px',
-                    margin: '10px 0',
-                    borderRadius: '8px',
+                    padding: '12px 16px',
+                    margin: '8px 0',
+                    borderRadius: '12px',
                     backgroundColor: msg.role === 'user' ? '#e6f3ff' : '#f0f0f0',
                     marginLeft: msg.role === 'assistant' ? 'auto' : '0',
                     marginRight: msg.role === 'user' ? 'auto' : '0',
-                    maxWidth: '80%'
+                    maxWidth: '85%'
                   }}
                 >
-                  <div style={{fontWeight: 'bold', marginBottom: '5px', fontSize: '12px', color: '#666'}}>
-                    {msg.role === 'user' ? 'Пользователь' : 'Бот'}
+                  <div style={{fontWeight: 'bold', marginBottom: '6px', fontSize: '12px', color: msg.role === 'user' ? '#2b6cb0' : '#4a5568'}}>
+                    {msg.role === 'user' ? '👤 Пользователь' : '🤖 Бот'}
                   </div>
-                  <div style={{whiteSpace: 'pre-wrap'}}>{msg.content}</div>
+                  <div style={{whiteSpace: 'pre-wrap', lineHeight: '1.5'}}>{msg.content}</div>
                 </div>
               ))}
             </div>
 
-            <div className="modal-footer">
+            <div className="modal-footer" style={{paddingTop: '15px', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '10px', justifyContent: 'flex-end'}}>
               <button className="btn-secondary" onClick={() => setSelectedDialog(null)}>
                 Закрыть
               </button>
@@ -188,7 +340,6 @@ function DialogHistory({ campaignId }) {
                 className="btn-danger" 
                 onClick={() => {
                   handleDelete(selectedDialog.session_name, selectedDialog.user_id);
-                  setSelectedDialog(null);
                 }}
               >
                 🗑 Удалить диалог
@@ -202,4 +353,3 @@ function DialogHistory({ campaignId }) {
 }
 
 export default DialogHistory;
-

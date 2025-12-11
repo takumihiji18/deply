@@ -116,6 +116,8 @@ export const getDialog = (campaignId, sessionName, userId) =>
   api.get(`/dialogs/${campaignId}/${sessionName}/${userId}`);
 export const deleteDialog = (campaignId, sessionName, userId) => 
   api.delete(`/dialogs/${campaignId}/${sessionName}/${userId}`);
+export const updateDialogStatus = (campaignId, sessionName, userId, status) =>
+  api.put(`/dialogs/${campaignId}/status/${sessionName}/${userId}`, { status });
 export const getProcessedClients = (campaignId) => 
   api.get(`/dialogs/${campaignId}/processed`);
 export const removeProcessedClient = (campaignId, userId) => 
