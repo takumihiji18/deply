@@ -732,8 +732,10 @@ async def _reply_once_for_batch(
     
     # ВАЖНО: Сохраняем/обновляем полную историю из Telegram в файл!
     # Это позволит видеть всю историю в веб-интерфейсе
+    history_saved_from_telegram = False
     if telegram_history:
         convo_save_full_history(session_name, uid, telegram_history, local_history, username)
+        history_saved_from_telegram = True
     
     # Используем Telegram историю как основную (там есть первое сообщение)
     # Если Telegram история пустая - используем локальную
@@ -784,10 +786,15 @@ async def _reply_once_for_batch(
         return False
     
     # Сохраняем в историю
-    for m in batch:
-        text = (m.text or "").strip()
-        if text:
-            convo_append(session_name, uid, "user", text, username)
+    # ВАЖНО: Если история уже сохранена из Telegram, НЕ добавляем сообщения из batch
+    # (они уже есть в файле), добавляем ТОЛЬКО ответ бота
+    if not history_saved_from_telegram:
+        for m in batch:
+            text = (m.text or "").strip()
+            if text:
+                convo_append(session_name, uid, "user", text, username)
+    
+    # Ответ бота всегда добавляем (его ещё нет в файле)
     convo_append(session_name, uid, "assistant", reply, username)
     
     # Проверяем триггерные фразы
@@ -1203,16 +1210,17 @@ async def setup_clients():
             continue
         
         # Создаем клиент
-        # ВАЖНО: connection_retries=1 - только 1 попытка подключения без retry
+        # ВАЖНО: Отключаем retry и auto_reconnect для быстрого пропуска при ошибках
         try:
             cl = TelegramClient(
                 session_path,
                 api_id,
                 api_hash,
                 proxy=proxy_dict,
-                connection_retries=1,  # Только 1 попытка подключения!
+                connection_retries=0,  # БЕЗ retry при подключении!
                 retry_delay=0,         # Без задержки
-                timeout=10             # Таймаут 10 секунд
+                timeout=10,            # Таймаут 10 секунд
+                auto_reconnect=False   # Не переподключаться автоматически
             )
             clients.append((cl, name))
         except Exception as e:
@@ -1280,9 +1288,10 @@ async def main():
                             cl = TelegramClient(
                                 session_path, api_id, api_hash, 
                                 proxy=proxy_dict,
-                                connection_retries=1,
+                                connection_retries=0,
                                 retry_delay=0,
-                                timeout=10
+                                timeout=10,
+                                auto_reconnect=False
                             )
                             # Обновляем клиент в списке
                             for i, (c, n) in enumerate(clients):
