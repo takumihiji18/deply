@@ -131,10 +131,28 @@ async def start_campaign(campaign_id: str):
 
 
 @router.post("/{campaign_id}/stop")
-async def stop_campaign(campaign_id: str):
-    """Остановить кампанию"""
-    if await campaign_runner.stop_campaign(campaign_id):
+async def stop_campaign(campaign_id: str, force: bool = False):
+    """
+    Остановить кампанию.
+    
+    Args:
+        campaign_id: ID кампании
+        force: Если True, принудительно сбросить статус даже если процесс уже не запущен
+    """
+    # Пытаемся остановить через campaign_runner
+    result = await campaign_runner.stop_campaign(campaign_id)
+    
+    if result:
         return {"status": "stopped"}
+    
+    # Если не удалось остановить через runner, проверяем можно ли сбросить статус принудительно
+    campaign = await db.get_campaign(campaign_id)
+    if campaign:
+        # Если процесс не запущен, но статус "running" или "error" - принудительно сбрасываем
+        if not campaign_runner.is_running(campaign_id):
+            campaign.status = CampaignStatus.STOPPED
+            await db.save_campaign(campaign)
+            return {"status": "stopped", "message": "Campaign was not running, status reset to stopped"}
     
     raise HTTPException(status_code=500, detail="Failed to stop campaign")
 
@@ -193,5 +211,83 @@ async def get_campaign_stats(campaign_id: str):
     )
     
     return stats
+
+
+@router.post("/{campaign_id}/restart")
+async def restart_campaign(campaign_id: str, force: bool = True):
+    """
+    Перезапустить кампанию.
+    
+    Сначала принудительно останавливает, затем запускает заново.
+    Используйте этот endpoint когда кампания "зависла" в статусе running,
+    но процесс фактически не работает.
+    
+    Args:
+        campaign_id: ID кампании
+        force: Если True (по умолчанию), принудительно сбросить статус перед запуском
+    """
+    campaign = await db.get_campaign(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # 1. Принудительно останавливаем (убиваем процесс если есть)
+    try:
+        await campaign_runner.stop_campaign(campaign_id)
+    except Exception as e:
+        print(f"Warning during stop: {e}")
+    
+    # 2. Если процесс всё ещё висит в списке - удаляем принудительно
+    if campaign_id in campaign_runner.running_campaigns:
+        try:
+            process = campaign_runner.running_campaigns[campaign_id]
+            process.kill()
+        except Exception:
+            pass
+        del campaign_runner.running_campaigns[campaign_id]
+    
+    # 3. Сбрасываем статус в STOPPED
+    campaign.status = CampaignStatus.STOPPED
+    await db.save_campaign(campaign)
+    
+    # 4. Небольшая пауза перед перезапуском
+    import asyncio
+    await asyncio.sleep(1)
+    
+    # 5. Запускаем заново
+    if await campaign_runner.start_campaign(campaign_id):
+        return {"status": "restarted", "message": "Campaign successfully restarted"}
+    
+    raise HTTPException(status_code=500, detail="Failed to restart campaign")
+
+
+@router.post("/{campaign_id}/reset-status")
+async def reset_campaign_status(campaign_id: str):
+    """
+    Принудительно сбросить статус кампании на STOPPED.
+    
+    Используйте когда кампания показывает неверный статус,
+    но фактически не работает.
+    """
+    campaign = await db.get_campaign(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Проверяем, не запущен ли реально процесс
+    if campaign_runner.is_running(campaign_id):
+        raise HTTPException(
+            status_code=400, 
+            detail="Campaign process is actually running. Use /stop first."
+        )
+    
+    old_status = campaign.status
+    campaign.status = CampaignStatus.STOPPED
+    await db.save_campaign(campaign)
+    
+    return {
+        "status": "reset",
+        "old_status": old_status,
+        "new_status": "stopped",
+        "message": f"Campaign status changed from {old_status} to stopped"
+    }
 
 

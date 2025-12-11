@@ -46,7 +46,8 @@ body {
 .btn-primary,
 .btn-success,
 .btn-danger,
-.btn-secondary {
+.btn-secondary,
+.btn-warning {
   padding: 10px 20px;
   border: none;
   border-radius: 6px;
@@ -92,6 +93,17 @@ body {
 
 .btn-secondary:hover {
   background-color: #cbd5e0;
+}
+
+.btn-warning {
+  background-color: #ed8936;
+  color: white;
+}
+
+.btn-warning:hover {
+  background-color: #dd6b20;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(237, 137, 54, 0.4);
 }
 
 /* Loading & Error States */
@@ -315,6 +327,49 @@ tr:hover {
   display: flex;
   gap: 10px;
   margin-top: 20px;
+}
+
+/* Campaign header actions */
+.campaign-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.campaign-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.campaign-info h2 {
+  margin: 0;
+  color: #2d3748;
+}
+
+.campaign-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.status-indicator {
+  font-size: 10px;
+  margin-left: 5px;
+}
+
+.status-indicator.running {
+  color: #48bb78;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
 }
 
 /* Responsive */

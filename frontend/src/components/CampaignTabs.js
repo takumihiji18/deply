@@ -8,6 +8,8 @@ import CampaignLogs from './CampaignLogs';
 import { 
   startCampaign, 
   stopCampaign, 
+  restartCampaign,
+  resetCampaignStatus,
   deleteCampaign,
   getCampaignStatus 
 } from '../api/client';
@@ -51,11 +53,41 @@ function CampaignTabs({ campaigns, onUpdate }) {
 
   const handleStop = async (campaignId) => {
     try {
-      await stopCampaign(campaignId);
+      await stopCampaign(campaignId, true);
       await loadStatuses();
       onUpdate();
     } catch (err) {
       alert('Ошибка остановки кампании: ' + err.message);
+    }
+  };
+
+  const handleRestart = async (campaignId) => {
+    if (!window.confirm('Перезапустить кампанию?\n\nКампания будет принудительно остановлена и запущена заново.')) {
+      return;
+    }
+    
+    try {
+      await restartCampaign(campaignId, true);
+      await loadStatuses();
+      onUpdate();
+      alert('Кампания успешно перезапущена!');
+    } catch (err) {
+      alert('Ошибка перезапуска кампании: ' + err.message);
+    }
+  };
+
+  const handleResetStatus = async (campaignId) => {
+    if (!window.confirm('Сбросить статус кампании?\n\nИспользуйте если кампания показывает статус "running" или "error", но фактически не работает.')) {
+      return;
+    }
+    
+    try {
+      const result = await resetCampaignStatus(campaignId);
+      await loadStatuses();
+      onUpdate();
+      alert(`Статус сброшен: ${result.data.old_status} → ${result.data.new_status}`);
+    } catch (err) {
+      alert('Ошибка сброса статуса: ' + err.message);
     }
   };
 
@@ -114,6 +146,22 @@ function CampaignTabs({ campaigns, onUpdate }) {
                       onClick={() => handleStart(campaign.id)}
                     >
                       ▶ Запустить
+                    </button>
+                  )}
+                  <button 
+                    className="btn-warning" 
+                    onClick={() => handleRestart(campaign.id)}
+                    title="Принудительно остановить и запустить заново"
+                  >
+                    🔄 Перезапустить
+                  </button>
+                  {(campaign.status === 'running' || campaign.status === 'error') && !isRunning && (
+                    <button 
+                      className="btn-secondary" 
+                      onClick={() => handleResetStatus(campaign.id)}
+                      title="Сбросить статус если кампания зависла"
+                    >
+                      ⚡ Сбросить статус
                     </button>
                   )}
                   <button 

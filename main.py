@@ -5,6 +5,7 @@ import random
 import datetime
 import sqlite3
 import shutil
+import sys
 from urllib.parse import urlparse
 from typing import Optional
 
@@ -1253,6 +1254,40 @@ async def main():
                     f"  Аккаунт будет пропущен в этом цикле."
                 )
             
+            except asyncio.CancelledError as e:
+                log_error(
+                    f"⚠️ {name}: ОПЕРАЦИЯ ОТМЕНЕНА (CancelledError)!\n"
+                    f"  ⚠️ Возможные причины:\n"
+                    f"  1. Прокси отключилась во время подключения\n"
+                    f"  2. Telegram разорвал соединение\n"
+                    f"  3. Сетевой таймаут\n"
+                    f"  ⏭ Пропускаем аккаунт, продолжаем работу...\n"
+                    f"  Error: {e!r}"
+                )
+                # Помечаем прокси как неработающую для повторной проверки
+                if name in PROXY_STATUS:
+                    PROXY_STATUS[name]["proxy_ok"] = False
+            
+            except ConnectionError as e:
+                log_error(
+                    f"⚠️ {name}: ОШИБКА СОЕДИНЕНИЯ!\n"
+                    f"  ⚠️ Не удалось установить соединение с Telegram\n"
+                    f"  ⏭ Пропускаем аккаунт, продолжаем работу...\n"
+                    f"  Error: {e!r}"
+                )
+                if name in PROXY_STATUS:
+                    PROXY_STATUS[name]["proxy_ok"] = False
+            
+            except OSError as e:
+                log_error(
+                    f"⚠️ {name}: СЕТЕВАЯ ОШИБКА!\n"
+                    f"  ⚠️ Проблема с сетевым подключением\n"
+                    f"  ⏭ Пропускаем аккаунт, продолжаем работу...\n"
+                    f"  Error: {e!r}"
+                )
+                if name in PROXY_STATUS:
+                    PROXY_STATUS[name]["proxy_ok"] = False
+            
             except Exception as e:
                 log_error(f"{name}: fatal error while processing: {e!r}")
             
@@ -1284,5 +1319,12 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         log_info("Program stopped by user")
+    except asyncio.CancelledError:
+        log_error("Program cancelled (CancelledError in main loop)")
+        # Выходим с кодом 0 - это не критическая ошибка
+        sys.exit(0)
     except Exception as e:
         log_error(f"Fatal error: {e!r}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)

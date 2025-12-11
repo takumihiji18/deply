@@ -140,19 +140,41 @@ class CampaignRunner:
             return False
     
     async def stop_campaign(self, campaign_id: str) -> bool:
-        """Остановить кампанию"""
+        """
+        Остановить кампанию.
+        
+        Возвращает True если:
+        - Процесс был успешно остановлен
+        - Процесс не был запущен (статус просто сбрасывается)
+        
+        Возвращает False только если кампания не найдена в БД.
+        """
         campaign = await db.get_campaign(campaign_id)
         if not campaign:
             return False
         
+        # Если процесс не запущен - просто обновляем статус
         if campaign_id not in self.running_campaigns:
             campaign.status = CampaignStatus.STOPPED
             await db.save_campaign(campaign)
+            
+            # Добавляем сообщение в логи
+            if campaign_id in self.campaign_logs:
+                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                self.campaign_logs[campaign_id].append(
+                    f"[{timestamp}] Кампания остановлена (процесс не был запущен)"
+                )
+            
             return True
         
         try:
             process = self.running_campaigns[campaign_id]
-            process.terminate()
+            
+            # Пытаемся мягко завершить процесс
+            try:
+                process.terminate()
+            except Exception as e:
+                print(f"Warning: terminate failed: {e}")
             
             # Ждем завершения процесса
             if platform.system() == 'Windows':
@@ -160,25 +182,59 @@ class CampaignRunner:
                 try:
                     process.wait(timeout=10)
                 except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait()
+                    print(f"Process {campaign_id} did not terminate in time, killing...")
+                    try:
+                        process.kill()
+                        process.wait(timeout=5)
+                    except Exception as e:
+                        print(f"Warning: kill failed: {e}")
+                except Exception as e:
+                    print(f"Warning: wait failed: {e}")
             else:
                 # Linux/Mac: asyncio process
                 try:
                     await asyncio.wait_for(process.wait(), timeout=10)
                 except asyncio.TimeoutError:
-                    process.kill()
-                    await process.wait()
+                    print(f"Process {campaign_id} did not terminate in time, killing...")
+                    try:
+                        process.kill()
+                        await asyncio.wait_for(process.wait(), timeout=5)
+                    except Exception as e:
+                        print(f"Warning: kill failed: {e}")
+                except Exception as e:
+                    print(f"Warning: wait failed: {e}")
             
-            del self.running_campaigns[campaign_id]
+            # Удаляем из списка запущенных (даже если что-то пошло не так)
+            if campaign_id in self.running_campaigns:
+                del self.running_campaigns[campaign_id]
             
+            # Обновляем статус в БД
             campaign.status = CampaignStatus.STOPPED
             await db.save_campaign(campaign)
             
+            # Добавляем сообщение в логи
+            if campaign_id in self.campaign_logs:
+                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                self.campaign_logs[campaign_id].append(
+                    f"[{timestamp}] Кампания остановлена пользователем"
+                )
+            
             return True
+            
         except Exception as e:
-            print(f"Error stopping campaign {campaign_id}: {e}")
-            return False
+            import traceback
+            print(f"Error stopping campaign {campaign_id}: {e}\n{traceback.format_exc()}")
+            
+            # Даже при ошибке пытаемся обновить статус
+            try:
+                if campaign_id in self.running_campaigns:
+                    del self.running_campaigns[campaign_id]
+                campaign.status = CampaignStatus.STOPPED
+                await db.save_campaign(campaign)
+            except Exception:
+                pass
+            
+            return True  # Возвращаем True - кампания больше не "running"
     
     async def get_campaign_logs(self, campaign_id: str, limit: int = 100) -> List[str]:
         """Получить логи кампании"""
@@ -188,6 +244,45 @@ class CampaignRunner:
     def is_running(self, campaign_id: str) -> bool:
         """Проверить, запущена ли кампания"""
         return campaign_id in self.running_campaigns
+    
+    def _update_campaign_status_sync(self, campaign_id: str, exit_code: int):
+        """
+        Обновить статус кампании в БД (синхронная версия для использования из потока).
+        exit_code: 0 = нормальное завершение, другой = ошибка
+        """
+        try:
+            # Создаём новый event loop для синхронного контекста
+            import asyncio
+            
+            async def update_status():
+                campaign = await db.get_campaign(campaign_id)
+                if campaign:
+                    if exit_code == 0:
+                        campaign.status = CampaignStatus.STOPPED
+                        msg = f"Кампания {campaign_id} остановлена (код выхода: 0)"
+                    else:
+                        campaign.status = CampaignStatus.ERROR
+                        msg = f"Кампания {campaign_id} завершилась с ошибкой (код выхода: {exit_code})"
+                    
+                    await db.save_campaign(campaign)
+                    print(f"[STATUS UPDATE] {msg}")
+                    
+                    # Добавляем сообщение в логи
+                    if campaign_id in self.campaign_logs:
+                        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        self.campaign_logs[campaign_id].append(f"[{timestamp}] {msg}")
+            
+            # Пытаемся получить текущий event loop
+            try:
+                loop = asyncio.get_running_loop()
+                # Если мы в асинхронном контексте, создаём задачу
+                asyncio.run_coroutine_threadsafe(update_status(), loop)
+            except RuntimeError:
+                # Нет текущего loop, создаём новый
+                asyncio.run(update_status())
+                
+        except Exception as e:
+            print(f"[ERROR] Failed to update campaign status: {e}")
     
     async def _create_campaign_config(self, campaign: Campaign) -> Optional[str]:
         """Создать config.json для кампании"""
@@ -491,15 +586,27 @@ class CampaignRunner:
             if campaign_id in self.running_campaigns:
                 del self.running_campaigns[campaign_id]
             
+            # ВАЖНО: Обновляем статус кампании в БД
+            # Используем asyncio для вызова асинхронной функции из синхронного контекста
+            self._update_campaign_status_sync(campaign_id, exit_code)
+            
         except Exception as e:
             import traceback
             error_msg = f"Error reading logs for {campaign_id}: {e}\n{traceback.format_exc()}"
             print(error_msg)
             if campaign_id in self.campaign_logs:
                 self.campaign_logs[campaign_id].append(f"[ERROR] {error_msg}")
+            
+            # Удалить из running_campaigns при ошибке
+            if campaign_id in self.running_campaigns:
+                del self.running_campaigns[campaign_id]
+            
+            # Обновляем статус на ERROR
+            self._update_campaign_status_sync(campaign_id, -1)
     
     async def _read_logs(self, campaign_id: str, process: asyncio.subprocess.Process):
         """Читать логи из процесса (асинхронная версия для Linux/Mac)"""
+        exit_code = -1
         try:
             while True:
                 line = await process.stdout.readline()
@@ -532,12 +639,51 @@ class CampaignRunner:
                 self.campaign_logs[campaign_id].append(final_msg)
             print(final_msg)
             
+            # Удалить из running_campaigns
+            if campaign_id in self.running_campaigns:
+                del self.running_campaigns[campaign_id]
+            
+            # ВАЖНО: Обновляем статус кампании в БД
+            await self._update_campaign_status_async(campaign_id, exit_code)
+            
         except Exception as e:
             import traceback
             error_msg = f"Error reading logs for {campaign_id}: {e}\n{traceback.format_exc()}"
             print(error_msg)
             if campaign_id in self.campaign_logs:
                 self.campaign_logs[campaign_id].append(f"[ERROR] {error_msg}")
+            
+            # Удалить из running_campaigns при ошибке
+            if campaign_id in self.running_campaigns:
+                del self.running_campaigns[campaign_id]
+            
+            # Обновляем статус на ERROR
+            await self._update_campaign_status_async(campaign_id, -1)
+    
+    async def _update_campaign_status_async(self, campaign_id: str, exit_code: int):
+        """
+        Обновить статус кампании в БД (асинхронная версия).
+        exit_code: 0 = нормальное завершение, другой = ошибка
+        """
+        try:
+            campaign = await db.get_campaign(campaign_id)
+            if campaign:
+                if exit_code == 0:
+                    campaign.status = CampaignStatus.STOPPED
+                    msg = f"Кампания {campaign_id} остановлена (код выхода: 0)"
+                else:
+                    campaign.status = CampaignStatus.ERROR
+                    msg = f"Кампания {campaign_id} завершилась с ошибкой (код выхода: {exit_code})"
+                
+                await db.save_campaign(campaign)
+                print(f"[STATUS UPDATE] {msg}")
+                
+                # Добавляем сообщение в логи
+                if campaign_id in self.campaign_logs:
+                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    self.campaign_logs[campaign_id].append(f"[{timestamp}] {msg}")
+        except Exception as e:
+            print(f"[ERROR] Failed to update campaign status: {e}")
 
 
 # Singleton instance

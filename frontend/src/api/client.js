@@ -69,7 +69,9 @@ export const createCampaign = (data) => api.post('/campaigns/', data);
 export const updateCampaign = (id, data) => api.put(`/campaigns/${id}`, data);
 export const deleteCampaign = (id) => api.delete(`/campaigns/${id}`);
 export const startCampaign = (id) => api.post(`/campaigns/${id}/start`);
-export const stopCampaign = (id) => api.post(`/campaigns/${id}/stop`);
+export const stopCampaign = (id, force = false) => api.post(`/campaigns/${id}/stop?force=${force}`);
+export const restartCampaign = (id, force = true) => api.post(`/campaigns/${id}/restart?force=${force}`);
+export const resetCampaignStatus = (id) => api.post(`/campaigns/${id}/reset-status`);
 export const getCampaignStatus = (id) => api.get(`/campaigns/${id}/status`);
 export const getCampaignLogs = (id, limit = 100) => 
   api.get(`/campaigns/${id}/logs?limit=${limit}`);
