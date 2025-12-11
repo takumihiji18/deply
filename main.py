@@ -326,25 +326,31 @@ def convo_append(session_name: str, user_id: int, role: str, content: str, usern
         f.write(json.dumps({"role": role, "content": content}, ensure_ascii=False) + "\n")
 
 
-def convo_save_full_history(session_name: str, user_id: int, history: list[dict], username: str = None):
+def convo_save_full_history(session_name: str, user_id: int, telegram_history: list[dict], local_history: list[dict], username: str = None):
     """
     Сохраняет полную историю диалога в файл.
-    Используется для сохранения истории из Telegram при первом контакте.
     
-    history: список словарей {"role": "user"|"assistant", "content": "текст"}
+    Логика:
+    - Если локальный файл пустой — сохраняем всю историю из Telegram
+    - Если в Telegram больше сообщений чем локально — обновляем файл
+    - Это гарантирует что в файле всегда будет полная история
+    
+    telegram_history: история из Telegram
+    local_history: история из локального файла
     """
     path = convo_path(session_name, user_id, username)
     
-    # Проверяем, пустой ли файл (первый контакт)
-    if os.path.exists(path) and os.path.getsize(path) > 0:
-        return  # Файл уже существует и не пустой - не перезаписываем
+    # Если Telegram история пустая — нечего сохранять
+    if not telegram_history:
+        return
     
-    # Сохраняем всю историю
-    with open(path, "w", encoding="utf-8") as f:
-        for msg in history:
-            f.write(json.dumps(msg, ensure_ascii=False) + "\n")
-    
-    log_info(f"Saved full Telegram history ({len(history)} messages) for {session_name}_{user_id}")
+    # Если локальная история пустая или в Telegram больше сообщений — сохраняем
+    if not local_history or len(telegram_history) > len(local_history):
+        with open(path, "w", encoding="utf-8") as f:
+            for msg in telegram_history:
+                f.write(json.dumps(msg, ensure_ascii=False) + "\n")
+        
+        log_info(f"📝 Saved/updated Telegram history ({len(telegram_history)} messages) for {session_name}_{user_id}")
 
 # ======================== PROCESSED USERS ========================
 def already_processed(uid: int) -> bool:
@@ -724,11 +730,10 @@ async def _reply_once_for_batch(
     # Также загружаем локальную историю (на случай если Telegram история неполная)
     local_history = convo_load(session_name, uid, username)
     
-    # ВАЖНО: Сохраняем полную историю из Telegram в файл при первом контакте!
+    # ВАЖНО: Сохраняем/обновляем полную историю из Telegram в файл!
     # Это позволит видеть всю историю в веб-интерфейсе
-    if telegram_history and not local_history:
-        convo_save_full_history(session_name, uid, telegram_history, username)
-        log_info(f"{session_name}: ✓ saved full Telegram history to file for {uid}")
+    if telegram_history:
+        convo_save_full_history(session_name, uid, telegram_history, local_history, username)
     
     # Используем Telegram историю как основную (там есть первое сообщение)
     # Если Telegram история пустая - используем локальную
