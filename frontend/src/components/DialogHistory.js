@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getCampaignDialogs, deleteDialog, uploadDialogHistory, updateDialogStatus } from '../api/client';
+import { getCampaignDialogs, deleteDialog, uploadDialogHistory, updateDialogStatus, getExportUrl, importDialogs } from '../api/client';
 
 // Статусы диалогов
 const DIALOG_STATUSES = {
@@ -63,6 +63,31 @@ function DialogHistory({ campaignId }) {
       e.target.value = ''; // Reset file input
     } catch (err) {
       alert('Ошибка загрузки файла: ' + err.message);
+    }
+  };
+
+  const handleExport = (format) => {
+    const url = getExportUrl(campaignId, format);
+    window.open(url, '_blank');
+  };
+
+  const handleImport = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.json')) {
+      alert('Пожалуйста, загрузите JSON файл');
+      return;
+    }
+
+    try {
+      const response = await importDialogs(campaignId, file);
+      const { imported_count, skipped_count } = response.data;
+      alert(`Импорт завершён!\nИмпортировано: ${imported_count}\nПропущено: ${skipped_count}`);
+      await loadDialogs();
+      e.target.value = '';
+    } catch (err) {
+      alert('Ошибка импорта: ' + (err.response?.data?.detail || err.message));
     }
   };
 
@@ -160,6 +185,53 @@ function DialogHistory({ campaignId }) {
               />
             </label>
           </div>
+        </div>
+
+        {/* Панель экспорта/импорта */}
+        <div style={{
+          display: 'flex', 
+          gap: '10px', 
+          marginBottom: '15px', 
+          padding: '12px 15px', 
+          backgroundColor: '#f8fafc', 
+          borderRadius: '8px',
+          alignItems: 'center',
+          flexWrap: 'wrap'
+        }}>
+          <span style={{fontWeight: '500', color: '#4a5568'}}>📁 Экспорт/Импорт:</span>
+          
+          <button 
+            className="btn-secondary" 
+            onClick={() => handleExport('json')}
+            style={{padding: '6px 12px', fontSize: '13px'}}
+          >
+            📥 Скачать JSON
+          </button>
+          
+          <button 
+            className="btn-secondary" 
+            onClick={() => handleExport('html')}
+            style={{padding: '6px 12px', fontSize: '13px'}}
+          >
+            📥 Скачать HTML
+          </button>
+          
+          <label 
+            className="btn-secondary" 
+            style={{cursor: 'pointer', display: 'inline-block', margin: 0, padding: '6px 12px', fontSize: '13px'}}
+          >
+            📤 Импорт JSON
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleImport}
+              style={{display: 'none'}}
+            />
+          </label>
+          
+          <span style={{fontSize: '12px', color: '#718096', marginLeft: 'auto'}}>
+            HTML для просмотра, JSON для резервного копирования
+          </span>
         </div>
 
         <div style={{marginBottom: '15px', padding: '10px', backgroundColor: '#f0f9ff', borderRadius: '6px', fontSize: '14px'}}>

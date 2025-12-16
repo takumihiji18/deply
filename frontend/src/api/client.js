@@ -143,6 +143,21 @@ export const uploadDialogHistory = (campaignId, file) => {
   });
 };
 
+// Экспорт диалогов (возвращает URL для скачивания)
+export const getExportUrl = (campaignId, format) => 
+  `${api.defaults.baseURL}/dialogs/${campaignId}/export/${format}`;
+
+// Импорт диалогов из JSON
+export const importDialogs = (campaignId, file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return api.post(`/dialogs/${campaignId}/import`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+
 // Proxies
 export const getProxies = (campaignId) => api.get(`/proxies/${campaignId}`);
 export const addProxy = (campaignId, proxyUrl, proxyName = null) => 
