@@ -380,6 +380,74 @@ function CampaignSettings({ campaign, onUpdate }) {
         </div>
       </div>
 
+      {/* Follow-up Settings */}
+      <div className="card">
+        <div className="card-header">
+          <h2>📨 Настройки Follow-up сообщений</h2>
+        </div>
+
+        <div style={{marginBottom: '15px', padding: '12px', backgroundColor: '#f0f9ff', borderRadius: '8px', fontSize: '14px'}}>
+          <strong>💡 Что это:</strong> Follow-up сообщение отправляется автоматически, если человек не ответил на ваше сообщение в течение заданного времени. 
+          Отправляется только 1 раз для каждого диалога.
+        </div>
+
+        <div className="form-group">
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.telegram_settings.follow_up?.enabled || false}
+              onChange={(e) => handleTelegramChange('follow_up', {
+                ...settings.telegram_settings.follow_up,
+                enabled: e.target.checked
+              })}
+            />
+            {' '}Включить Follow-up сообщения
+          </label>
+        </div>
+
+        <div className="form-group">
+          <label>Задержка перед отправкой (часы)</label>
+          <input
+            type="number"
+            min="1"
+            value={settings.telegram_settings.follow_up?.delay_hours || 24}
+            onChange={(e) => handleTelegramChange('follow_up', {
+              ...settings.telegram_settings.follow_up,
+              delay_hours: parseInt(e.target.value) || 24
+            })}
+          />
+          <small style={{color: '#718096', marginTop: '5px', display: 'block'}}>
+            Через сколько часов без ответа отправить follow-up (по умолчанию: 24 часа)
+          </small>
+        </div>
+
+        <div className="form-group">
+          <label>Шаблон сообщения</label>
+          <textarea
+            value={settings.telegram_settings.follow_up?.message_template || '{Здравствуйте|Добрый день}, напоминаю о себе. Если предложение не актуально, просто напишите об этом.'}
+            onChange={(e) => handleTelegramChange('follow_up', {
+              ...settings.telegram_settings.follow_up,
+              message_template: e.target.value
+            })}
+            rows={4}
+            placeholder="{Здравствуйте|Добрый день}, напоминаю о себе..."
+          />
+          <small style={{color: '#718096', marginTop: '5px', display: 'block'}}>
+            <strong>Спинтакс:</strong> используйте {'{вариант1|вариант2|вариант3}'} для случайного выбора.<br/>
+            Пример: {'{Здравствуйте|Добрый день|Привет}'} → "Добрый день"
+          </small>
+        </div>
+
+        <div style={{padding: '12px', backgroundColor: '#fffbeb', borderRadius: '8px', fontSize: '13px', marginTop: '10px'}}>
+          <strong>⚠️ Важно:</strong>
+          <ul style={{margin: '5px 0 0 0', paddingLeft: '20px'}}>
+            <li>Follow-up отправляется только если последнее сообщение от бота</li>
+            <li>Отправляется только 1 раз для каждого пользователя</li>
+            <li>Не отправляется для уже обработанных клиентов</li>
+          </ul>
+        </div>
+      </div>
+
       <div className="action-buttons">
         <button 
           className="btn-primary" 

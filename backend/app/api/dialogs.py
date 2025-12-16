@@ -23,31 +23,45 @@ router = APIRouter(prefix="/dialogs", tags=["dialogs"])
 
 # ============================================================
 # Хелпер для работы со статусами диалогов
+# Статусы хранятся в campaigns_metadata/{campaign_id}_statuses.json
+# для надёжности (не зависит от work_folder)
 # ============================================================
 
-def _get_statuses_file(campaign_dir: str) -> str:
-    """Возвращает путь к файлу статусов диалогов"""
-    return os.path.join(campaign_dir, "dialog_statuses.json")
+def _get_statuses_dir() -> str:
+    """Возвращает директорию для хранения статусов"""
+    current_file = os.path.abspath(__file__)
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+    statuses_dir = os.path.join(project_root, "campaigns_metadata")
+    os.makedirs(statuses_dir, exist_ok=True)
+    return statuses_dir
 
 
-def _load_dialog_statuses(campaign_dir: str) -> dict:
+def _get_statuses_file(campaign_id: str) -> str:
+    """Возвращает путь к файлу статусов диалогов для кампании"""
+    return os.path.join(_get_statuses_dir(), f"{campaign_id}_dialog_statuses.json")
+
+
+def _load_dialog_statuses(campaign_id: str) -> dict:
     """Загружает статусы диалогов из файла"""
-    statuses_file = _get_statuses_file(campaign_dir)
+    statuses_file = _get_statuses_file(campaign_id)
     if os.path.exists(statuses_file):
         try:
             with open(statuses_file, 'r', encoding='utf-8') as f:
                 return json.load(f)
-        except:
-            pass
+        except Exception as e:
+            print(f"Error loading dialog statuses: {e}")
     return {}
 
 
-def _save_dialog_statuses(campaign_dir: str, statuses: dict):
+def _save_dialog_statuses(campaign_id: str, statuses: dict):
     """Сохраняет статусы диалогов в файл"""
-    statuses_file = _get_statuses_file(campaign_dir)
-    os.makedirs(os.path.dirname(statuses_file), exist_ok=True)
-    with open(statuses_file, 'w', encoding='utf-8') as f:
-        json.dump(statuses, f, ensure_ascii=False, indent=2)
+    statuses_file = _get_statuses_file(campaign_id)
+    try:
+        with open(statuses_file, 'w', encoding='utf-8') as f:
+            json.dump(statuses, f, ensure_ascii=False, indent=2)
+        print(f"Saved dialog statuses to {statuses_file}")
+    except Exception as e:
+        print(f"Error saving dialog statuses: {e}")
 
 
 def _get_dialog_key(session_name: str, user_id: int) -> str:
@@ -340,15 +354,15 @@ async def update_dialog_status(
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
         work_folder = os.path.join(project_root, work_folder)
     
-    # Загружаем статусы
-    statuses = _load_dialog_statuses(work_folder)
+    # Загружаем статусы (используем campaign_id для надёжности)
+    statuses = _load_dialog_statuses(campaign_id)
     
     # Обновляем статус
     dialog_key = _get_dialog_key(session_name, user_id)
     statuses[dialog_key] = data.status.value
     
     # Сохраняем
-    _save_dialog_statuses(work_folder, statuses)
+    _save_dialog_statuses(campaign_id, statuses)
     
     return {"status": "updated", "dialog_key": dialog_key, "new_status": data.status.value}
 
@@ -378,8 +392,8 @@ async def get_campaign_dialogs(campaign_id: str):
     if not os.path.exists(convos_dir):
         return dialogs
     
-    # Загружаем статусы диалогов
-    statuses = _load_dialog_statuses(work_folder)
+    # Загружаем статусы диалогов (используем campaign_id для надёжности)
+    statuses = _load_dialog_statuses(campaign_id)
     
     # Читаем все файлы диалогов
     for filename in os.listdir(convos_dir):

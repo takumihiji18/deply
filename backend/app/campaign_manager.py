@@ -457,7 +457,13 @@ class CampaignRunner:
                 "ACCOUNT_LOOP_DELAY_RANGE": campaign.telegram_settings.account_loop_delay_range,
                 "DIALOG_WAIT_WINDOW_RANGE": campaign.telegram_settings.dialog_wait_window_range,
                 "SLEEP_PERIODS": campaign.telegram_settings.sleep_periods,
-                "TIMEZONE_OFFSET": campaign.telegram_settings.timezone_offset
+                "TIMEZONE_OFFSET": campaign.telegram_settings.timezone_offset,
+                # Follow-up настройки
+                "FOLLOW_UP": {
+                    "enabled": campaign.telegram_settings.follow_up.enabled if campaign.telegram_settings.follow_up else False,
+                    "delay_hours": campaign.telegram_settings.follow_up.delay_hours if campaign.telegram_settings.follow_up else 24,
+                    "message_template": campaign.telegram_settings.follow_up.message_template if campaign.telegram_settings.follow_up else "{Здравствуйте|Добрый день}, напоминаю о себе. Если предложение не актуально, просто напишите об этом."
+                }
             }
             
             config_path = os.path.join(campaign_dir, "config.json")

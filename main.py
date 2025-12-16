@@ -78,9 +78,19 @@ else:
     SLEEP_PERIODS = []
 TIMEZONE_OFFSET = CONFIG.get("TIMEZONE_OFFSET", 3)  # Часовой пояс (по умолчанию +3 МСК)
 
+# ======================== FOLLOW-UP CONFIG ========================
+FOLLOW_UP_CFG = CONFIG.get("FOLLOW_UP", {})
+FOLLOW_UP_ENABLED = FOLLOW_UP_CFG.get("enabled", False)
+FOLLOW_UP_DELAY_HOURS = FOLLOW_UP_CFG.get("delay_hours", 24)
+FOLLOW_UP_MESSAGE_TEMPLATE = FOLLOW_UP_CFG.get("message_template", 
+    "{Здравствуйте|Добрый день}, напоминаю о себе. Если предложение не актуально, просто напишите об этом.")
+
 os.makedirs(WORK_FOLDER, exist_ok=True)
 if not os.path.exists(PROCESSED_FILE):
     open(PROCESSED_FILE, "w").close()
+
+# Файл для отслеживания отправленных follow-up сообщений
+FOLLOW_UP_SENT_FILE = os.path.join(WORK_FOLDER, "follow_up_sent.json")
 
 # ======================== LOGGING ========================
 def _ts_local() -> str:
@@ -373,6 +383,184 @@ async def mark_processed(client: TelegramClient, user: User, uid: int):
         log_info(f"{client.session.filename}: marked processed {line}")
     except Exception as e:
         log_error(f"{client.session.filename}: cannot write processed: {e!r}")
+
+# ======================== FOLLOW-UP ========================
+import re
+
+def spin_text(template: str) -> str:
+    """
+    Обрабатывает спинтакс в шаблоне сообщения.
+    Пример: "{Здравствуйте|Добрый день}, как дела?" -> "Добрый день, как дела?"
+    """
+    pattern = r'\{([^{}]+)\}'
+    
+    def replace_spin(match):
+        options = match.group(1).split('|')
+        return random.choice(options).strip()
+    
+    # Обрабатываем все спинтаксы в тексте
+    result = re.sub(pattern, replace_spin, template)
+    return result
+
+
+def load_follow_up_sent() -> dict:
+    """Загружает список отправленных follow-up из файла"""
+    if os.path.exists(FOLLOW_UP_SENT_FILE):
+        try:
+            with open(FOLLOW_UP_SENT_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            pass
+    return {}
+
+
+def save_follow_up_sent(data: dict):
+    """Сохраняет список отправленных follow-up в файл"""
+    try:
+        with open(FOLLOW_UP_SENT_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        log_error(f"Failed to save follow_up_sent: {e!r}")
+
+
+def is_follow_up_sent(session_name: str, user_id: int) -> bool:
+    """Проверяет, был ли отправлен follow-up для данного пользователя"""
+    data = load_follow_up_sent()
+    key = f"{session_name}_{user_id}"
+    return key in data
+
+
+def mark_follow_up_sent(session_name: str, user_id: int):
+    """Отмечает, что follow-up был отправлен"""
+    data = load_follow_up_sent()
+    key = f"{session_name}_{user_id}"
+    data[key] = _ts_local()
+    save_follow_up_sent(data)
+    log_info(f"📝 Marked follow-up sent for {key}")
+
+
+def get_dialog_last_message_info(session_name: str, user_id: int, username: str = None) -> tuple[str, datetime.datetime]:
+    """
+    Возвращает информацию о последнем сообщении в диалоге.
+    Returns: (last_sender: "user" | "assistant", last_message_time: datetime)
+    """
+    path = convo_path(session_name, user_id, username)
+    if not os.path.exists(path):
+        return None, None
+    
+    last_role = None
+    last_time = None
+    
+    try:
+        # Время последнего изменения файла = время последнего сообщения
+        last_time = datetime.datetime.fromtimestamp(os.path.getmtime(path))
+        
+        # Читаем последнее сообщение из файла
+        with open(path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            if lines:
+                last_line = lines[-1].strip()
+                if last_line:
+                    msg = json.loads(last_line)
+                    last_role = msg.get('role')
+    except Exception as e:
+        log_error(f"Error reading dialog info for {session_name}_{user_id}: {e!r}")
+    
+    return last_role, last_time
+
+
+async def send_follow_up_if_needed(client: TelegramClient, session_name: str) -> int:
+    """
+    Проверяет все диалоги и отправляет follow-up если нужно.
+    Возвращает количество отправленных follow-up сообщений.
+    """
+    if not FOLLOW_UP_ENABLED:
+        return 0
+    
+    sent_count = 0
+    convos_dir = os.path.join(WORK_FOLDER, "convos")
+    
+    if not os.path.exists(convos_dir):
+        return 0
+    
+    now = _get_local_time()
+    delay_threshold = datetime.timedelta(hours=FOLLOW_UP_DELAY_HOURS)
+    
+    # Собираем все диалоги
+    for filename in os.listdir(convos_dir):
+        if not filename.endswith('.jsonl'):
+            continue
+        
+        try:
+            # Парсим имя файла: sessionname_userid_username.jsonl
+            parts = filename.replace('.jsonl', '').split('_', 2)
+            if len(parts) < 2:
+                continue
+            
+            file_session_name = parts[0]
+            user_id = int(parts[1])
+            username = parts[2] if len(parts) > 2 else None
+            
+            # Проверяем только диалоги текущей сессии
+            if file_session_name != session_name:
+                continue
+            
+            # Проверяем, не отправлен ли уже follow-up
+            if is_follow_up_sent(session_name, user_id):
+                continue
+            
+            # Проверяем, не обработан ли уже пользователь
+            if already_processed(user_id):
+                continue
+            
+            # Получаем информацию о последнем сообщении
+            last_role, last_time = get_dialog_last_message_info(session_name, user_id, username)
+            
+            # Если нет диалога или пустой - пропускаем
+            if not last_role or not last_time:
+                continue
+            
+            # Follow-up отправляем только если:
+            # 1. Последнее сообщение от бота (assistant)
+            # 2. Прошло более delay_hours часов
+            if last_role != 'assistant':
+                continue
+            
+            time_since_last = now - last_time
+            if time_since_last < delay_threshold:
+                continue
+            
+            # Отправляем follow-up!
+            log_info(f"📤 {session_name}: sending follow-up to {user_id} (@{username or 'no_username'})")
+            log_info(f"  Last message: {time_since_last.total_seconds() / 3600:.1f}h ago")
+            
+            try:
+                # Генерируем сообщение из шаблона
+                message = spin_text(FOLLOW_UP_MESSAGE_TEMPLATE)
+                
+                # Отправляем
+                await client.send_message(user_id, message)
+                
+                # Сохраняем в историю
+                convo_append(session_name, user_id, "assistant", message, username)
+                
+                # Отмечаем что follow-up отправлен
+                mark_follow_up_sent(session_name, user_id)
+                
+                sent_count += 1
+                log_info(f"✅ {session_name}: follow-up sent to {user_id}")
+                
+                # Небольшая задержка между отправками
+                await asyncio.sleep(random.uniform(3, 8))
+                
+            except Exception as e:
+                log_error(f"❌ {session_name}: failed to send follow-up to {user_id}: {e!r}")
+        
+        except Exception as e:
+            log_error(f"Error processing dialog {filename} for follow-up: {e!r}")
+    
+    return sent_count
+
 
 # ======================== OpenAI API ========================
 async def openai_generate(messages: list[dict]) -> str:
@@ -1323,6 +1511,12 @@ async def main():
                     
                     # Обрабатываем все диалоги на аккаунте
                     await poll_client(cl, name)
+                    
+                    # Отправляем follow-up сообщения если включено
+                    if FOLLOW_UP_ENABLED:
+                        follow_up_count = await send_follow_up_if_needed(cl, name)
+                        if follow_up_count > 0:
+                            log_info(f"📨 {name}: sent {follow_up_count} follow-up message(s)")
             
             except PhoneNumberBannedError as e:
                 log_error(

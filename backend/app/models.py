@@ -43,6 +43,14 @@ class OpenAISettings(BaseModel):
     fallback_text: str = ""
 
 
+class FollowUpSettings(BaseModel):
+    """Настройки follow-up сообщений"""
+    enabled: bool = False
+    delay_hours: int = 24  # Через сколько часов отправлять follow-up
+    message_template: str = "{Здравствуйте|Добрый день}, напоминаю о себе. Если предложение не актуально, просто напишите об этом."
+    # Шаблон поддерживает спинтакс: {вариант1|вариант2|вариант3}
+
+
 class TelegramSettings(BaseModel):
     forward_limit: int = 5
     reply_only_if_previously_wrote: bool = True
@@ -53,6 +61,7 @@ class TelegramSettings(BaseModel):
     dialog_wait_window_range: List[float] = [40, 60]
     sleep_periods: List[str] = ["20:00-08:00", "13:00-14:30"]
     timezone_offset: int = 3
+    follow_up: FollowUpSettings = FollowUpSettings()  # Настройки follow-up
 
 
 class Campaign(BaseModel):
