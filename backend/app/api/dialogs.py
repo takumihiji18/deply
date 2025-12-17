@@ -163,41 +163,24 @@ async def remove_processed_client(campaign_id: str, user_id: int):
             for line in f:
                 line_content = line.strip()
                 if not line_content:
-                    # Пропускаем пустые строки, но НЕ добавляем их в новый файл
                     continue
                 
                 try:
                     parts = line_content.split('|')
                     if parts and parts[0].strip():
-                        # Пытаемся преобразовать в int
                         current_user_id = int(parts[0].strip())
                         if current_user_id == user_id:
                             found = True
                             print(f"Found client {user_id}, removing...")
-                            continue  # Пропускаем эту строку (удаляем)
+                            continue
                     
-                    # Если не нашли совпадение - сохраняем строку
                     lines.append(line)
                 except ValueError:
-                    # Если не смогли распарсить user_id - сохраняем строку как есть
                     print(f"Warning: invalid line format: {line_content}")
                     lines.append(line)
         
         if not found:
             print(f"Client {user_id} not found in file")
-            print(f"File path: {processed_file}")
-            print(f"File exists: {os.path.exists(processed_file)}")
-            print(f"File size: {os.path.getsize(processed_file) if os.path.exists(processed_file) else 0} bytes")
-            
-            # Показываем что в файле
-            print("File contents:")
-            try:
-                with open(processed_file, 'r', encoding='utf-8') as f:
-                    for i, line in enumerate(f, 1):
-                        print(f"  Line {i}: {line.strip()}")
-            except Exception as e:
-                print(f"  Error reading file: {e!r}")
-            
             raise HTTPException(status_code=404, detail=f"Client {user_id} not found in processed list")
         
         # Перезаписываем файл
@@ -295,7 +278,6 @@ async def upload_processed_clients(campaign_id: str, file: UploadFile = File(...
             if not line:
                 continue
             
-            # Формат может быть: "user_id | @username" или просто "user_id"
             parts = line.split('|')
             try:
                 user_id = int(parts[0].strip())
@@ -349,13 +331,6 @@ async def update_dialog_status(
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
-    # Преобразуем относительный путь в абсолютный
-    work_folder = campaign.work_folder
-    if not os.path.isabs(work_folder):
-        current_file = os.path.abspath(__file__)
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
-        work_folder = os.path.join(project_root, work_folder)
-    
     # Загружаем статусы (используем campaign_id для надёжности)
     statuses = _load_dialog_statuses(campaign_id)
     
@@ -370,176 +345,7 @@ async def update_dialog_status(
 
 
 # ============================================================
-# Общие роуты для диалогов (ПОСЛЕ специфичных роутов /processed/)
-# ============================================================
-
-@router.get("/{campaign_id}", response_model=List[Dialog])
-async def get_campaign_dialogs(campaign_id: str):
-    """Получить все диалоги кампании (отсортированные по времени последнего сообщения)"""
-    campaign = await db.get_campaign(campaign_id)
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    
-    dialogs = []
-    
-    # Преобразуем относительный путь в абсолютный
-    work_folder = campaign.work_folder
-    if not os.path.isabs(work_folder):
-        current_file = os.path.abspath(__file__)
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
-        work_folder = os.path.join(project_root, work_folder)
-    
-    convos_dir = os.path.join(work_folder, "convos")
-    
-    if not os.path.exists(convos_dir):
-        return dialogs
-    
-    # Загружаем статусы диалогов (используем campaign_id для надёжности)
-    statuses = _load_dialog_statuses(campaign_id)
-    
-    # Читаем все файлы диалогов
-    for filename in os.listdir(convos_dir):
-        if filename.endswith('.jsonl'):
-            try:
-                # Парсим имя файла: sessionname_userid_username.jsonl
-                # ВАЖНО: split с maxsplit=2, т.к. username может содержать _
-                parts = filename.replace('.jsonl', '').split('_', 2)
-                
-                if len(parts) >= 2:
-                    session_name = parts[0]
-                    user_id = int(parts[1])
-                    username = parts[2] if len(parts) > 2 else None
-                    
-                    # Читаем сообщения
-                    messages = []
-                    filepath = os.path.join(convos_dir, filename)
-                    
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        for line in f:
-                            if line.strip():
-                                msg_data = json.loads(line)
-                                messages.append(DialogMessage(
-                                    role=msg_data['role'],
-                                    content=msg_data['content']
-                                ))
-                    
-                    # Получаем время последней модификации файла
-                    last_message_time = _get_file_modification_time(filepath)
-                    
-                    # Получаем статус диалога
-                    dialog_key = _get_dialog_key(session_name, user_id)
-                    status_str = statuses.get(dialog_key, "none")
-                    try:
-                        status = DialogStatus(status_str)
-                    except:
-                        status = DialogStatus.NONE
-                    
-                    dialogs.append(Dialog(
-                        session_name=session_name,
-                        user_id=user_id,
-                        username=username,
-                        messages=messages,
-                        last_message_time=last_message_time,
-                        status=status
-                    ))
-            except Exception as e:
-                print(f"Error reading dialog {filename}: {e}")
-                continue
-    
-    # Сортируем по времени последнего сообщения (новые первые)
-    dialogs.sort(key=lambda d: d.last_message_time or datetime.min, reverse=True)
-    
-    return dialogs
-
-
-@router.get("/{campaign_id}/{session_name}/{user_id}", response_model=Dialog)
-async def get_dialog(campaign_id: str, session_name: str, user_id: int):
-    """Получить конкретный диалог"""
-    campaign = await db.get_campaign(campaign_id)
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    
-    # Преобразуем относительный путь в абсолютный
-    work_folder = campaign.work_folder
-    if not os.path.isabs(work_folder):
-        current_file = os.path.abspath(__file__)
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
-        work_folder = os.path.join(project_root, work_folder)
-    
-    convos_dir = os.path.join(work_folder, "convos")
-    
-    # Попробуем найти файл с или без username
-    possible_files = [
-        f for f in os.listdir(convos_dir)
-        if f.startswith(f"{session_name}_{user_id}") and f.endswith('.jsonl')
-    ] if os.path.exists(convos_dir) else []
-    
-    if not possible_files:
-        raise HTTPException(status_code=404, detail="Dialog not found")
-    
-    filepath = os.path.join(convos_dir, possible_files[0])
-    
-    # Парсим имя файла для username
-    # ВАЖНО: split с maxsplit=2, т.к. username может содержать _
-    filename = possible_files[0].replace('.jsonl', '')
-    parts = filename.split('_', 2)
-    username = parts[2] if len(parts) > 2 else None
-    
-    # Читаем сообщения
-    messages = []
-    with open(filepath, 'r', encoding='utf-8') as f:
-        for line in f:
-            if line.strip():
-                msg_data = json.loads(line)
-                messages.append(DialogMessage(
-                    role=msg_data['role'],
-                    content=msg_data['content']
-                ))
-    
-    return Dialog(
-        session_name=session_name,
-        user_id=user_id,
-        username=username,
-        messages=messages
-    )
-
-
-@router.delete("/{campaign_id}/{session_name}/{user_id}")
-async def delete_dialog(campaign_id: str, session_name: str, user_id: int):
-    """Удалить диалог"""
-    campaign = await db.get_campaign(campaign_id)
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    
-    # Преобразуем относительный путь в абсолютный
-    work_folder = campaign.work_folder
-    if not os.path.isabs(work_folder):
-        current_file = os.path.abspath(__file__)
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
-        work_folder = os.path.join(project_root, work_folder)
-    
-    convos_dir = os.path.join(work_folder, "convos")
-    
-    if not os.path.exists(convos_dir):
-        raise HTTPException(status_code=404, detail="Dialog not found")
-    
-    # Найти и удалить файл
-    deleted = False
-    for filename in os.listdir(convos_dir):
-        if filename.startswith(f"{session_name}_{user_id}") and filename.endswith('.jsonl'):
-            filepath = os.path.join(convos_dir, filename)
-            os.remove(filepath)
-            deleted = True
-            break
-    
-    if deleted:
-        return {"status": "deleted"}
-    
-    raise HTTPException(status_code=404, detail="Dialog not found")
-
-
-# ============================================================
-# Экспорт и импорт диалогов
+# Экспорт и импорт диалогов (ПЕРЕД общими роутами!)
 # ============================================================
 
 def _generate_html_export(dialogs: list, campaign_name: str) -> str:
@@ -917,3 +723,171 @@ async def import_dialogs(campaign_id: str, file: UploadFile = File(...)):
         "skipped_count": skipped_count
     }
 
+
+# ============================================================
+# Общие роуты для диалогов (ПОСЛЕ специфичных роутов!)
+# ============================================================
+
+@router.get("/{campaign_id}", response_model=List[Dialog])
+async def get_campaign_dialogs(campaign_id: str):
+    """Получить все диалоги кампании (отсортированные по времени последнего сообщения)"""
+    campaign = await db.get_campaign(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    dialogs = []
+    
+    # Преобразуем относительный путь в абсолютный
+    work_folder = campaign.work_folder
+    if not os.path.isabs(work_folder):
+        current_file = os.path.abspath(__file__)
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+        work_folder = os.path.join(project_root, work_folder)
+    
+    convos_dir = os.path.join(work_folder, "convos")
+    
+    if not os.path.exists(convos_dir):
+        return dialogs
+    
+    # Загружаем статусы диалогов (используем campaign_id для надёжности)
+    statuses = _load_dialog_statuses(campaign_id)
+    
+    # Читаем все файлы диалогов
+    for filename in os.listdir(convos_dir):
+        if filename.endswith('.jsonl'):
+            try:
+                # Парсим имя файла: sessionname_userid_username.jsonl
+                # ВАЖНО: split с maxsplit=2, т.к. username может содержать _
+                parts = filename.replace('.jsonl', '').split('_', 2)
+                
+                if len(parts) >= 2:
+                    session_name = parts[0]
+                    user_id = int(parts[1])
+                    username = parts[2] if len(parts) > 2 else None
+                    
+                    # Читаем сообщения
+                    messages = []
+                    filepath = os.path.join(convos_dir, filename)
+                    
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            if line.strip():
+                                msg_data = json.loads(line)
+                                messages.append(DialogMessage(
+                                    role=msg_data['role'],
+                                    content=msg_data['content']
+                                ))
+                    
+                    # Получаем время последней модификации файла
+                    last_message_time = _get_file_modification_time(filepath)
+                    
+                    # Получаем статус диалога
+                    dialog_key = _get_dialog_key(session_name, user_id)
+                    status_str = statuses.get(dialog_key, "none")
+                    try:
+                        status = DialogStatus(status_str)
+                    except:
+                        status = DialogStatus.NONE
+                    
+                    dialogs.append(Dialog(
+                        session_name=session_name,
+                        user_id=user_id,
+                        username=username,
+                        messages=messages,
+                        last_message_time=last_message_time,
+                        status=status
+                    ))
+            except Exception as e:
+                print(f"Error reading dialog {filename}: {e}")
+                continue
+    
+    # Сортируем по времени последнего сообщения (новые первые)
+    dialogs.sort(key=lambda d: d.last_message_time or datetime.min, reverse=True)
+    
+    return dialogs
+
+
+@router.get("/{campaign_id}/{session_name}/{user_id}", response_model=Dialog)
+async def get_dialog(campaign_id: str, session_name: str, user_id: int):
+    """Получить конкретный диалог"""
+    campaign = await db.get_campaign(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Преобразуем относительный путь в абсолютный
+    work_folder = campaign.work_folder
+    if not os.path.isabs(work_folder):
+        current_file = os.path.abspath(__file__)
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+        work_folder = os.path.join(project_root, work_folder)
+    
+    convos_dir = os.path.join(work_folder, "convos")
+    
+    # Попробуем найти файл с или без username
+    possible_files = [
+        f for f in os.listdir(convos_dir)
+        if f.startswith(f"{session_name}_{user_id}") and f.endswith('.jsonl')
+    ] if os.path.exists(convos_dir) else []
+    
+    if not possible_files:
+        raise HTTPException(status_code=404, detail="Dialog not found")
+    
+    filepath = os.path.join(convos_dir, possible_files[0])
+    
+    # Парсим имя файла для username
+    # ВАЖНО: split с maxsplit=2, т.к. username может содержать _
+    filename = possible_files[0].replace('.jsonl', '')
+    parts = filename.split('_', 2)
+    username = parts[2] if len(parts) > 2 else None
+    
+    # Читаем сообщения
+    messages = []
+    with open(filepath, 'r', encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                msg_data = json.loads(line)
+                messages.append(DialogMessage(
+                    role=msg_data['role'],
+                    content=msg_data['content']
+                ))
+    
+    return Dialog(
+        session_name=session_name,
+        user_id=user_id,
+        username=username,
+        messages=messages
+    )
+
+
+@router.delete("/{campaign_id}/{session_name}/{user_id}")
+async def delete_dialog(campaign_id: str, session_name: str, user_id: int):
+    """Удалить диалог"""
+    campaign = await db.get_campaign(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Преобразуем относительный путь в абсолютный
+    work_folder = campaign.work_folder
+    if not os.path.isabs(work_folder):
+        current_file = os.path.abspath(__file__)
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+        work_folder = os.path.join(project_root, work_folder)
+    
+    convos_dir = os.path.join(work_folder, "convos")
+    
+    if not os.path.exists(convos_dir):
+        raise HTTPException(status_code=404, detail="Dialog not found")
+    
+    # Найти и удалить файл
+    deleted = False
+    for filename in os.listdir(convos_dir):
+        if filename.startswith(f"{session_name}_{user_id}") and filename.endswith('.jsonl'):
+            filepath = os.path.join(convos_dir, filename)
+            os.remove(filepath)
+            deleted = True
+            break
+    
+    if deleted:
+        return {"status": "deleted"}
+    
+    raise HTTPException(status_code=404, detail="Dialog not found")

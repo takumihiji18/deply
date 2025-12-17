@@ -453,7 +453,11 @@ def get_dialog_last_message_info(session_name: str, user_id: int, username: str 
     
     try:
         # Время последнего изменения файла = время последнего сообщения
-        last_time = datetime.datetime.fromtimestamp(os.path.getmtime(path))
+        # ВАЖНО: Используем aware datetime (с timezone) для совместимости с _get_local_time()
+        mtime = os.path.getmtime(path)
+        last_time = datetime.datetime.fromtimestamp(mtime, tz=datetime.timezone.utc)
+        # Применяем тот же offset что и в _get_local_time
+        last_time = last_time + datetime.timedelta(hours=TIMEZONE_OFFSET)
         
         # Читаем последнее сообщение из файла
         with open(path, 'r', encoding='utf-8') as f:
@@ -707,6 +711,11 @@ async def resolve_target(client: TelegramClient, raw_target) -> int:
         log_error(f"Cannot resolve target {raw_target}: {e!r}")
         raise
 
+class DisconnectedError(Exception):
+    """Raised when client is disconnected during operation"""
+    pass
+
+
 async def _collect_new_incoming_since(
     client: TelegramClient, 
     chat_id: int, 
@@ -716,6 +725,11 @@ async def _collect_new_incoming_since(
     """Собирает новые входящие сообщения после last_msg_id"""
     res: list[Message] = []
     
+    # Проверяем соединение перед операцией
+    if not client.is_connected():
+        log_error(f"{client.session.filename}: disconnected before _collect_new_incoming_since")
+        raise DisconnectedError("Client disconnected")
+    
     try:
         messages = await client.get_messages(chat_id, limit=max_take)
         
@@ -724,6 +738,9 @@ async def _collect_new_incoming_since(
                 text = (m.text or "").strip()
                 if text:
                     res.append(m)
+    except ConnectionError as e:
+        log_error(f"{client.session.filename}: connection lost in _collect_new_incoming_since: {e!r}")
+        raise DisconnectedError(str(e))
     except Exception as e:
         log_error(f"{client.session.filename}: _collect_new_incoming_since error chat {chat_id}: {e!r}")
     
@@ -797,12 +814,20 @@ async def forward_conversation(
 # ======================== CORE PROCESSING ========================
 async def _has_outgoing_before(client: TelegramClient, uid: int) -> bool:
     """Проверяет, были ли исходящие сообщения в диалоге"""
+    # Проверяем соединение перед операцией
+    if not client.is_connected():
+        log_error(f"{client.session.filename}: disconnected before _has_outgoing_before")
+        raise DisconnectedError("Client disconnected")
+    
     try:
         messages = await client.get_messages(uid, limit=TELEGRAM_HISTORY_LIMIT)
         for m in messages:
             if m.out:
                 return True
         return False
+    except ConnectionError as e:
+        log_error(f"{client.session.filename}: connection lost in _has_outgoing_before: {e!r}")
+        raise DisconnectedError(str(e))
     except Exception as e:
         log_error(f"{client.session.filename}: _has_outgoing_before failed for {uid}: {e!r}")
         return False
@@ -1053,6 +1078,11 @@ async def handle_chat_session(
     
     # Цикл ожидания новых сообщений
     while True:
+        # Проверяем соединение перед ожиданием
+        if not client.is_connected():
+            log_error(f"{session_name}: connection lost before wait window, exiting chat {uid}")
+            return
+        
         # Случайное окно ожидания из диапазона
         window_sec = random.uniform(*DIALOG_WAIT_WINDOW_RANGE)
         eta = (_get_local_time() + datetime.timedelta(seconds=window_sec)).strftime("%H:%M:%S")
@@ -1061,8 +1091,17 @@ async def handle_chat_session(
         # Просто ждём указанное время (имитация что человек отошёл)
         await asyncio.sleep(window_sec)
         
-        # Проверяем новые сообщения ПОСЛЕ ожидания
-        fresh = await _collect_new_incoming_since(client, uid, last_confirmed_id, max_take=50)
+        # Проверяем соединение после ожидания
+        if not client.is_connected():
+            log_error(f"{session_name}: connection lost after wait, exiting chat {uid}")
+            return
+        
+        try:
+            # Проверяем новые сообщения ПОСЛЕ ожидания
+            fresh = await _collect_new_incoming_since(client, uid, last_confirmed_id, max_take=50)
+        except DisconnectedError:
+            log_error(f"{session_name}: disconnected while checking messages, exiting chat {uid}")
+            return
         
         # Если новых сообщений нет, выходим
         if not fresh:
@@ -1090,10 +1129,20 @@ async def poll_client(client: TelegramClient, session_name: str):
     try:
         processed_any_chat = False
         
+        # Проверяем соединение перед началом
+        if not client.is_connected():
+            log_error(f"[{session_name}] client disconnected before poll, skipping")
+            return
+        
         # Получаем диалоги (оптимизация: один запрос вместо множества)
         dialogs = await client.get_dialogs(limit=100)
         
         for dialog in dialogs:
+            # Проверяем соединение на каждой итерации
+            if not client.is_connected():
+                log_error(f"[{session_name}] connection lost during poll, stopping")
+                return
+            
             # Фильтруем только приватные чаты
             if not isinstance(dialog.entity, User):
                 continue
@@ -1117,9 +1166,18 @@ async def poll_client(client: TelegramClient, session_name: str):
         if not processed_any_chat:
             log_info(f"[{session_name}] no new messages on this account")
     
+    except DisconnectedError as e:
+        log_error(f"{session_name}: connection lost during poll, stopping: {e}")
+        # Не перебрасываем, просто прерываем обработку этого аккаунта
+        return
+    
     except FloodWaitError as e:
         log_error(f"{session_name}: FloodWait {e.seconds}s, skipping this round")
         await asyncio.sleep(e.seconds)
+    
+    except ConnectionError as e:
+        log_error(f"{session_name}: connection error during poll: {e!r}")
+        return
     
     except Exception as e:
         log_error(f"{session_name}: poll_client error: {e!r}")
