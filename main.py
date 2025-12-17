@@ -82,8 +82,8 @@ TIMEZONE_OFFSET = CONFIG.get("TIMEZONE_OFFSET", 3)  # Часовой пояс (�
 FOLLOW_UP_CFG = CONFIG.get("FOLLOW_UP", {})
 FOLLOW_UP_ENABLED = FOLLOW_UP_CFG.get("enabled", False)
 FOLLOW_UP_DELAY_HOURS = FOLLOW_UP_CFG.get("delay_hours", 24)
-FOLLOW_UP_MESSAGE_TEMPLATE = FOLLOW_UP_CFG.get("message_template", 
-    "{Здравствуйте|Добрый день}, напоминаю о себе. Если предложение не актуально, просто напишите об этом.")
+FOLLOW_UP_PROMPT = FOLLOW_UP_CFG.get("prompt", 
+    "Напиши короткое напоминание о себе. Вежливо напомни о предложении и спроси, актуально ли оно ещё. Если не актуально - попроси сообщить об этом. Сообщение должно быть кратким (2-3 предложения).")
 
 os.makedirs(WORK_FOLDER, exist_ok=True)
 if not os.path.exists(PROCESSED_FILE):
@@ -473,12 +473,85 @@ def get_dialog_last_message_info(session_name: str, user_id: int, username: str 
     return last_role, last_time
 
 
+async def generate_follow_up_message(session_name: str, user_id: int, username: str = None) -> str:
+    """
+    Генерирует follow-up сообщение через GPT с учётом контекста диалога.
+    
+    Returns: сгенерированное сообщение или пустую строку при ошибке
+    """
+    # Загружаем историю диалога
+    history = convo_load(session_name, user_id, username)
+    
+    if not history:
+        log_error(f"No dialog history found for {session_name}_{user_id}")
+        return ""
+    
+    # Формируем системный промпт для follow-up
+    # Включаем основной системный промпт для контекста + специальные инструкции
+    follow_up_system = f"""{SYSTEM_PROMPT}
+
+---
+СПЕЦИАЛЬНАЯ ЗАДАЧА: Напиши follow-up сообщение.
+
+Контекст: Ты уже вёл диалог с этим человеком. Последнее сообщение было от тебя, но человек не ответил уже больше {FOLLOW_UP_DELAY_HOURS} часов. 
+
+Инструкция для follow-up:
+{FOLLOW_UP_PROMPT}
+
+ВАЖНО:
+- Учитывай контекст предыдущего диалога
+- Не повторяй дословно своё последнее сообщение
+- Будь вежлив и ненавязчив
+- Сообщение должно быть естественным и коротким
+- Напиши ТОЛЬКО текст сообщения, без пояснений"""
+
+    # Формируем messages для GPT
+    messages = [{"role": "system", "content": follow_up_system}]
+    
+    # Добавляем историю диалога
+    messages.extend(history)
+    
+    # Добавляем запрос на генерацию follow-up
+    messages.append({
+        "role": "user", 
+        "content": "[Системное указание: сгенерируй follow-up сообщение согласно инструкции выше]"
+    })
+    
+    try:
+        # Генерируем через GPT
+        reply = await openai_generate(messages)
+        
+        if reply:
+            # Убираем возможные кавычки вокруг сообщения
+            reply = reply.strip('"\'')
+            log_info(f"Generated follow-up message: {reply[:100]}...")
+            return reply
+        else:
+            log_error("GPT returned empty follow-up message")
+            return ""
+            
+    except Exception as e:
+        log_error(f"Failed to generate follow-up: {e!r}")
+        return ""
+
+
 async def send_follow_up_if_needed(client: TelegramClient, session_name: str) -> int:
     """
     Проверяет все диалоги и отправляет follow-up если нужно.
     Возвращает количество отправленных follow-up сообщений.
+    
+    Логика:
+    1. Проверяем все диалоги текущего аккаунта
+    2. Находим те, где последнее сообщение от нас (assistant)
+    3. Если прошло больше delay_hours часов без ответа - генерируем и отправляем follow-up
+    4. Follow-up отправляется только 1 раз для каждого диалога
     """
     if not FOLLOW_UP_ENABLED:
+        return 0
+    
+    # Проверяем соединение
+    if not client.is_connected():
+        log_error(f"{session_name}: client disconnected, skipping follow-up check")
         return 0
     
     sent_count = 0
@@ -494,6 +567,11 @@ async def send_follow_up_if_needed(client: TelegramClient, session_name: str) ->
     for filename in os.listdir(convos_dir):
         if not filename.endswith('.jsonl'):
             continue
+        
+        # Проверяем соединение на каждой итерации
+        if not client.is_connected():
+            log_error(f"{session_name}: connection lost during follow-up check, stopping")
+            break
         
         try:
             # Парсим имя файла: sessionname_userid_username.jsonl
@@ -525,9 +603,10 @@ async def send_follow_up_if_needed(client: TelegramClient, session_name: str) ->
                 continue
             
             # Follow-up отправляем только если:
-            # 1. Последнее сообщение от бота (assistant)
+            # 1. Последнее сообщение от бота (assistant) - значит мы написали, а нам не ответили
             # 2. Прошло более delay_hours часов
             if last_role != 'assistant':
+                # Последнее сообщение от пользователя - значит ждём нашего ответа, не follow-up
                 continue
             
             time_since_last = now - last_time
@@ -535,12 +614,17 @@ async def send_follow_up_if_needed(client: TelegramClient, session_name: str) ->
                 continue
             
             # Отправляем follow-up!
-            log_info(f"📤 {session_name}: sending follow-up to {user_id} (@{username or 'no_username'})")
-            log_info(f"  Last message: {time_since_last.total_seconds() / 3600:.1f}h ago")
+            hours_ago = time_since_last.total_seconds() / 3600
+            log_info(f"📤 {session_name}: preparing follow-up for {user_id} (@{username or 'no_username'})")
+            log_info(f"  Last message was {hours_ago:.1f}h ago (threshold: {FOLLOW_UP_DELAY_HOURS}h)")
             
             try:
-                # Генерируем сообщение из шаблона
-                message = spin_text(FOLLOW_UP_MESSAGE_TEMPLATE)
+                # Генерируем сообщение через GPT с контекстом диалога
+                message = await generate_follow_up_message(session_name, user_id, username)
+                
+                if not message:
+                    log_error(f"❌ {session_name}: failed to generate follow-up for {user_id}, skipping")
+                    continue
                 
                 # Отправляем
                 await client.send_message(user_id, message)
@@ -554,8 +638,8 @@ async def send_follow_up_if_needed(client: TelegramClient, session_name: str) ->
                 sent_count += 1
                 log_info(f"✅ {session_name}: follow-up sent to {user_id}")
                 
-                # Небольшая задержка между отправками
-                await asyncio.sleep(random.uniform(3, 8))
+                # Небольшая задержка между отправками (имитация человека)
+                await asyncio.sleep(random.uniform(5, 12))
                 
             except Exception as e:
                 log_error(f"❌ {session_name}: failed to send follow-up to {user_id}: {e!r}")

@@ -462,7 +462,7 @@ class CampaignRunner:
                 "FOLLOW_UP": {
                     "enabled": campaign.telegram_settings.follow_up.enabled if campaign.telegram_settings.follow_up else False,
                     "delay_hours": campaign.telegram_settings.follow_up.delay_hours if campaign.telegram_settings.follow_up else 24,
-                    "message_template": campaign.telegram_settings.follow_up.message_template if campaign.telegram_settings.follow_up else "{Здравствуйте|Добрый день}, напоминаю о себе. Если предложение не актуально, просто напишите об этом."
+                    "prompt": campaign.telegram_settings.follow_up.prompt if campaign.telegram_settings.follow_up else "Напиши короткое напоминание о себе. Вежливо напомни о предложении и спроси, актуально ли оно ещё. Если не актуально - попроси сообщить об этом. Сообщение должно быть кратким (2-3 предложения)."
                 }
             }
             
