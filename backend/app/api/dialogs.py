@@ -532,108 +532,130 @@ def _generate_html_export(dialogs: list, campaign_name: str) -> str:
     return html
 
 
+def _sanitize_filename(name: str) -> str:
+    """Очищает имя файла от небезопасных символов"""
+    import re
+    # Заменяем небезопасные символы на подчёркивания
+    safe_name = re.sub(r'[^\w\-.]', '_', name)
+    # Убираем множественные подчёркивания
+    safe_name = re.sub(r'_+', '_', safe_name)
+    return safe_name.strip('_')
+
+
 @router.get("/{campaign_id}/export/{format}")
 async def export_dialogs(campaign_id: str, format: str):
     """
     Экспортировать все диалоги кампании.
     format: 'json' или 'html'
     """
-    if format not in ['json', 'html']:
-        raise HTTPException(status_code=400, detail="Format must be 'json' or 'html'")
-    
-    campaign = await db.get_campaign(campaign_id)
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    
-    # Получаем все диалоги
-    dialogs_data = []
-    
-    # Преобразуем относительный путь в абсолютный
-    work_folder = campaign.work_folder
-    if not os.path.isabs(work_folder):
-        current_file = os.path.abspath(__file__)
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
-        work_folder = os.path.join(project_root, work_folder)
-    
-    convos_dir = os.path.join(work_folder, "convos")
-    
-    if not os.path.exists(convos_dir):
+    try:
+        if format not in ['json', 'html']:
+            raise HTTPException(status_code=400, detail="Format must be 'json' or 'html'")
+        
+        campaign = await db.get_campaign(campaign_id)
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        
+        # Получаем все диалоги
         dialogs_data = []
-    else:
-        # Загружаем статусы
-        statuses = _load_dialog_statuses(campaign_id)
         
-        for filename in os.listdir(convos_dir):
-            if filename.endswith('.jsonl'):
-                try:
-                    parts = filename.replace('.jsonl', '').split('_', 2)
-                    if len(parts) >= 2:
-                        session_name = parts[0]
-                        user_id = int(parts[1])
-                        username = parts[2] if len(parts) > 2 else None
-                        
-                        messages = []
-                        filepath = os.path.join(convos_dir, filename)
-                        
-                        with open(filepath, 'r', encoding='utf-8') as f:
-                            for line in f:
-                                if line.strip():
-                                    msg_data = json.loads(line)
-                                    messages.append({
-                                        'role': msg_data['role'],
-                                        'content': msg_data['content']
-                                    })
-                        
-                        dialog_key = f"{session_name}_{user_id}"
-                        status = statuses.get(dialog_key, 'none')
-                        
-                        dialogs_data.append({
-                            'session_name': session_name,
-                            'user_id': user_id,
-                            'username': username,
-                            'status': status,
-                            'messages': messages
-                        })
-                except Exception as e:
-                    print(f"Error reading dialog {filename}: {e}")
-                    continue
-    
-    # Сортируем по количеству сообщений (больше = выше)
-    dialogs_data.sort(key=lambda d: len(d['messages']), reverse=True)
-    
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    
-    if format == 'json':
-        export_data = {
-            'campaign_id': campaign_id,
-            'campaign_name': campaign.name,
-            'exported_at': datetime.now().isoformat(),
-            'total_dialogs': len(dialogs_data),
-            'dialogs': dialogs_data
-        }
+        # Преобразуем относительный путь в абсолютный
+        work_folder = campaign.work_folder
+        if not os.path.isabs(work_folder):
+            current_file = os.path.abspath(__file__)
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+            work_folder = os.path.join(project_root, work_folder)
         
-        content = json.dumps(export_data, ensure_ascii=False, indent=2)
-        filename = f"dialogs_{campaign.name}_{timestamp}.json"
+        convos_dir = os.path.join(work_folder, "convos")
         
-        return Response(
-            content=content,
-            media_type="application/json",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename}"'
+        if os.path.exists(convos_dir):
+            # Загружаем статусы
+            statuses = _load_dialog_statuses(campaign_id)
+            
+            for filename in os.listdir(convos_dir):
+                if filename.endswith('.jsonl'):
+                    try:
+                        parts = filename.replace('.jsonl', '').split('_', 2)
+                        if len(parts) >= 2:
+                            session_name = parts[0]
+                            user_id = int(parts[1])
+                            username = parts[2] if len(parts) > 2 else None
+                            
+                            messages = []
+                            filepath = os.path.join(convos_dir, filename)
+                            
+                            with open(filepath, 'r', encoding='utf-8') as f:
+                                for line in f:
+                                    if line.strip():
+                                        try:
+                                            msg_data = json.loads(line)
+                                            messages.append({
+                                                'role': msg_data.get('role', 'user'),
+                                                'content': msg_data.get('content', '')
+                                            })
+                                        except json.JSONDecodeError:
+                                            continue
+                            
+                            dialog_key = f"{session_name}_{user_id}"
+                            status = statuses.get(dialog_key, 'none')
+                            
+                            dialogs_data.append({
+                                'session_name': session_name,
+                                'user_id': user_id,
+                                'username': username,
+                                'status': status,
+                                'messages': messages
+                            })
+                    except Exception as e:
+                        print(f"Error reading dialog {filename}: {e}")
+                        continue
+        
+        # Сортируем по количеству сообщений (больше = выше)
+        dialogs_data.sort(key=lambda d: len(d['messages']), reverse=True)
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        # Используем безопасное имя файла
+        safe_campaign_name = _sanitize_filename(campaign.name)
+        
+        if format == 'json':
+            export_data = {
+                'campaign_id': campaign_id,
+                'campaign_name': campaign.name,
+                'exported_at': datetime.now().isoformat(),
+                'total_dialogs': len(dialogs_data),
+                'dialogs': dialogs_data
             }
-        )
-    
-    else:  # html
-        html_content = _generate_html_export(dialogs_data, campaign.name)
-        filename = f"dialogs_{campaign.name}_{timestamp}.html"
+            
+            content = json.dumps(export_data, ensure_ascii=False, indent=2)
+            export_filename = f"dialogs_{safe_campaign_name}_{timestamp}.json"
+            
+            return Response(
+                content=content,
+                media_type="application/json",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{export_filename}"; filename*=UTF-8\'\'{export_filename}'
+                }
+            )
         
-        return Response(
-            content=html_content,
-            media_type="text/html; charset=utf-8",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename}"'
-            }
-        )
+        else:  # html
+            html_content = _generate_html_export(dialogs_data, campaign.name)
+            export_filename = f"dialogs_{safe_campaign_name}_{timestamp}.html"
+            
+            return Response(
+                content=html_content,
+                media_type="text/html; charset=utf-8",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{export_filename}"; filename*=UTF-8\'\'{export_filename}'
+                }
+            )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Export error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
 
 
 @router.post("/{campaign_id}/import")

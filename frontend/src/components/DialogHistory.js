@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getCampaignDialogs, deleteDialog, uploadDialogHistory, updateDialogStatus, getExportUrl, importDialogs } from '../api/client';
+import { getCampaignDialogs, deleteDialog, uploadDialogHistory, updateDialogStatus, getExportUrl, importDialogs, addProcessedClient } from '../api/client';
 
 // Статусы диалогов
 const DIALOG_STATUSES = {
@@ -106,6 +106,24 @@ function DialogHistory({ campaignId }) {
       }
     } catch (err) {
       alert('Ошибка обновления статуса: ' + err.message);
+    }
+  };
+
+  const handleAddToProcessed = async (dialog) => {
+    if (!window.confirm(`Добавить пользователя ${dialog.username ? '@' + dialog.username : 'ID: ' + dialog.user_id} в обработанные?\n\nБот больше не будет отвечать этому пользователю.`)) {
+      return;
+    }
+
+    try {
+      await addProcessedClient(campaignId, dialog.user_id, dialog.username);
+      alert('Пользователь добавлен в обработанные');
+      // Можно обновить список диалогов или оставить как есть
+    } catch (err) {
+      if (err.response?.status === 400) {
+        alert('Пользователь уже в списке обработанных');
+      } else {
+        alert('Ошибка добавления в обработанные: ' + (err.response?.data?.detail || err.message));
+      }
     }
   };
 
@@ -318,6 +336,14 @@ function DialogHistory({ campaignId }) {
                           >
                             ⏰
                           </button>
+                          <button
+                            className="btn-secondary"
+                            onClick={() => handleAddToProcessed(dialog)}
+                            style={{padding: '5px 10px', fontSize: '12px'}}
+                            title="Добавить в обработанные (бот не будет отвечать)"
+                          >
+                            🚫
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -352,7 +378,7 @@ function DialogHistory({ campaignId }) {
             </div>
             
             {/* Кнопки статуса в модальном окне */}
-            <div style={{padding: '10px 0', display: 'flex', gap: '10px', borderBottom: '1px solid #e2e8f0'}}>
+            <div style={{padding: '10px 0', display: 'flex', gap: '10px', borderBottom: '1px solid #e2e8f0', flexWrap: 'wrap'}}>
               <span style={{color: '#718096', alignSelf: 'center'}}>Статус:</span>
               <button
                 className={selectedDialog.status === 'lead' ? 'btn-success' : 'btn-secondary'}
@@ -374,6 +400,14 @@ function DialogHistory({ campaignId }) {
                 style={{padding: '6px 12px'}}
               >
                 ⏰ Потом
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={() => handleAddToProcessed(selectedDialog)}
+                style={{padding: '6px 12px', marginLeft: 'auto'}}
+                title="Бот больше не будет отвечать этому пользователю"
+              >
+                🚫 В обработанные
               </button>
             </div>
             

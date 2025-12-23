@@ -423,20 +423,42 @@ def save_follow_up_sent(data: dict):
         log_error(f"Failed to save follow_up_sent: {e!r}")
 
 
-def is_follow_up_sent(session_name: str, user_id: int) -> bool:
-    """Проверяет, был ли отправлен follow-up для данного пользователя"""
+def is_follow_up_sent(session_name: str, user_id: int, username: str = None) -> bool:
+    """
+    Проверяет, был ли отправлен follow-up для данного пользователя.
+    Проверяет оба ключа: с username и без (для совместимости).
+    """
     data = load_follow_up_sent()
-    key = f"{session_name}_{user_id}"
-    return key in data
+    
+    # Проверяем ключ с username (новый формат)
+    if username:
+        key_with_username = f"{session_name}_{user_id}_{username}"
+        if key_with_username in data:
+            return True
+    
+    # Проверяем ключ без username (старый формат, для совместимости)
+    key_without_username = f"{session_name}_{user_id}"
+    return key_without_username in data
 
 
-def mark_follow_up_sent(session_name: str, user_id: int):
-    """Отмечает, что follow-up был отправлен"""
+def mark_follow_up_sent(session_name: str, user_id: int, username: str = None):
+    """
+    Отмечает, что follow-up был отправлен.
+    Сохраняет оба ключа для надёжности.
+    """
     data = load_follow_up_sent()
-    key = f"{session_name}_{user_id}"
-    data[key] = _ts_local()
+    timestamp = _ts_local()
+    
+    # Сохраняем оба ключа для надёжности
+    key_without_username = f"{session_name}_{user_id}"
+    data[key_without_username] = timestamp
+    
+    if username:
+        key_with_username = f"{session_name}_{user_id}_{username}"
+        data[key_with_username] = timestamp
+    
     save_follow_up_sent(data)
-    log_info(f"📝 Marked follow-up sent for {key}")
+    log_info(f"📝 Marked follow-up sent for {session_name}_{user_id} (@{username or 'no_username'})")
 
 
 def get_dialog_last_message_info(session_name: str, user_id: int, username: str = None) -> tuple[str, datetime.datetime]:
@@ -587,8 +609,8 @@ async def send_follow_up_if_needed(client: TelegramClient, session_name: str) ->
             if file_session_name != session_name:
                 continue
             
-            # Проверяем, не отправлен ли уже follow-up
-            if is_follow_up_sent(session_name, user_id):
+            # Проверяем, не отправлен ли уже follow-up (с учётом username)
+            if is_follow_up_sent(session_name, user_id, username):
                 continue
             
             # Проверяем, не обработан ли уже пользователь
@@ -619,6 +641,27 @@ async def send_follow_up_if_needed(client: TelegramClient, session_name: str) ->
             log_info(f"  Last message was {hours_ago:.1f}h ago (threshold: {FOLLOW_UP_DELAY_HOURS}h)")
             
             try:
+                # Сначала получаем entity пользователя
+                # Это нужно для пользователей, с которыми не было прямого общения через этот client
+                try:
+                    # Пробуем получить entity по user_id
+                    entity = await client.get_input_entity(user_id)
+                except ValueError:
+                    # Если не нашли по ID, пробуем по username (если есть)
+                    if username:
+                        try:
+                            entity = await client.get_input_entity(f"@{username}")
+                            log_info(f"  Found entity by username @{username}")
+                        except ValueError:
+                            log_error(f"❌ {session_name}: cannot find entity for {user_id}/@{username}, skipping")
+                            # Отмечаем как отправленный чтобы не спамить ошибками
+                            mark_follow_up_sent(session_name, user_id, username)
+                            continue
+                    else:
+                        log_error(f"❌ {session_name}: cannot find entity for {user_id} (no username), skipping")
+                        mark_follow_up_sent(session_name, user_id, username)
+                        continue
+                
                 # Генерируем сообщение через GPT с контекстом диалога
                 message = await generate_follow_up_message(session_name, user_id, username)
                 
@@ -626,14 +669,14 @@ async def send_follow_up_if_needed(client: TelegramClient, session_name: str) ->
                     log_error(f"❌ {session_name}: failed to generate follow-up for {user_id}, skipping")
                     continue
                 
-                # Отправляем
-                await client.send_message(user_id, message)
+                # Отправляем используя entity
+                await client.send_message(entity, message)
                 
                 # Сохраняем в историю
                 convo_append(session_name, user_id, "assistant", message, username)
                 
-                # Отмечаем что follow-up отправлен
-                mark_follow_up_sent(session_name, user_id)
+                # Отмечаем что follow-up отправлен (с username для надёжности)
+                mark_follow_up_sent(session_name, user_id, username)
                 
                 sent_count += 1
                 log_info(f"✅ {session_name}: follow-up sent to {user_id}")
@@ -643,6 +686,7 @@ async def send_follow_up_if_needed(client: TelegramClient, session_name: str) ->
                 
             except Exception as e:
                 log_error(f"❌ {session_name}: failed to send follow-up to {user_id}: {e!r}")
+                # Не отмечаем как отправленный - возможно временная ошибка
         
         except Exception as e:
             log_error(f"Error processing dialog {filename} for follow-up: {e!r}")
