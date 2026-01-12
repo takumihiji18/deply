@@ -6,6 +6,7 @@ import os
 import json
 from datetime import datetime
 from html import escape as html_escape
+from urllib.parse import quote
 
 from ..models import Dialog, DialogMessage, ProcessedClient, DialogStatus
 from ..database import db
