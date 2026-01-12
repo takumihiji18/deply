@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getCampaignDialogs, deleteDialog, uploadDialogHistory, updateDialogStatus, getExportUrl, importDialogs, addProcessedClient } from '../api/client';
+import { getCampaignDialogs, deleteDialog, uploadDialogHistory, updateDialogStatus, getExportUrl, importDialogs, addProcessedClient, sendMessageToUser } from '../api/client';
 
 // Статусы диалогов
 const DIALOG_STATUSES = {
@@ -15,6 +15,8 @@ function DialogHistory({ campaignId }) {
   const [selectedDialog, setSelectedDialog] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [newMessage, setNewMessage] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
 
   useEffect(() => {
     loadDialogs();
@@ -125,6 +127,46 @@ function DialogHistory({ campaignId }) {
         alert('Ошибка добавления в обработанные: ' + (err.response?.data?.detail || err.message));
       }
     }
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedDialog) return;
+
+    setSendingMessage(true);
+    try {
+      await sendMessageToUser(campaignId, selectedDialog.session_name, selectedDialog.user_id, newMessage);
+      
+      // Добавляем сообщение в локальный state
+      const updatedDialog = {
+        ...selectedDialog,
+        messages: [...selectedDialog.messages, { role: 'assistant', content: newMessage }]
+      };
+      setSelectedDialog(updatedDialog);
+      
+      // Обновляем в списке диалогов
+      setDialogs(prev => prev.map(d => 
+        d.session_name === selectedDialog.session_name && d.user_id === selectedDialog.user_id
+          ? updatedDialog
+          : d
+      ));
+      
+      setNewMessage('');
+      // alert('Сообщение отправлено!'); // Убрано для лучшего UX
+    } catch (err) {
+      const errorMsg = err.response?.data?.detail || err.message;
+      alert('Ошибка отправки сообщения: ' + errorMsg);
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
+  // Вычисляем статистику диалогов
+  const stats = {
+    total: dialogs.length,
+    lead: dialogs.filter(d => d.status === 'lead').length,
+    not_lead: dialogs.filter(d => d.status === 'not_lead').length,
+    later: dialogs.filter(d => d.status === 'later').length,
+    none: dialogs.filter(d => !d.status || d.status === 'none').length
   };
 
   const formatTime = (dateString) => {
@@ -250,6 +292,39 @@ function DialogHistory({ campaignId }) {
           <span style={{fontSize: '12px', color: '#718096', marginLeft: 'auto'}}>
             HTML для просмотра, JSON для резервного копирования
           </span>
+        </div>
+
+        {/* Статистика диалогов */}
+        <div style={{
+          display: 'flex',
+          gap: '15px',
+          marginBottom: '15px',
+          padding: '15px',
+          backgroundColor: '#f8fafc',
+          borderRadius: '8px',
+          flexWrap: 'wrap',
+          justifyContent: 'center'
+        }}>
+          <div style={{textAlign: 'center', minWidth: '80px'}}>
+            <div style={{fontSize: '24px', fontWeight: '700', color: '#4a5568'}}>{stats.total}</div>
+            <div style={{fontSize: '12px', color: '#718096'}}>Всего</div>
+          </div>
+          <div style={{textAlign: 'center', minWidth: '80px'}}>
+            <div style={{fontSize: '24px', fontWeight: '700', color: '#22543d'}}>{stats.lead}</div>
+            <div style={{fontSize: '12px', color: '#718096'}}>✅ Лиды</div>
+          </div>
+          <div style={{textAlign: 'center', minWidth: '80px'}}>
+            <div style={{fontSize: '24px', fontWeight: '700', color: '#742a2a'}}>{stats.not_lead}</div>
+            <div style={{fontSize: '12px', color: '#718096'}}>❌ Не лиды</div>
+          </div>
+          <div style={{textAlign: 'center', minWidth: '80px'}}>
+            <div style={{fontSize: '24px', fontWeight: '700', color: '#744210'}}>{stats.later}</div>
+            <div style={{fontSize: '12px', color: '#718096'}}>⏰ Позже</div>
+          </div>
+          <div style={{textAlign: 'center', minWidth: '80px'}}>
+            <div style={{fontSize: '24px', fontWeight: '700', color: '#718096'}}>{stats.none}</div>
+            <div style={{fontSize: '12px', color: '#718096'}}>— Не размечено</div>
+          </div>
         </div>
 
         <div style={{marginBottom: '15px', padding: '10px', backgroundColor: '#f0f9ff', borderRadius: '6px', fontSize: '14px'}}>
@@ -438,8 +513,52 @@ function DialogHistory({ campaignId }) {
               ))}
             </div>
 
+            {/* Поле отправки сообщения */}
+            <div style={{
+              padding: '15px 0',
+              borderTop: '1px solid #e2e8f0',
+              display: 'flex',
+              gap: '10px',
+              alignItems: 'flex-end'
+            }}>
+              <div style={{flex: 1}}>
+                <label style={{fontSize: '12px', color: '#718096', marginBottom: '5px', display: 'block'}}>
+                  ✉️ Отправить сообщение от имени {selectedDialog.session_name}:
+                </label>
+                <textarea
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Введите сообщение..."
+                  style={{
+                    width: '100%',
+                    minHeight: '60px',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0',
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                    fontSize: '14px'
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.ctrlKey) {
+                      handleSendMessage();
+                    }
+                  }}
+                />
+                <small style={{color: '#a0aec0', fontSize: '11px'}}>Ctrl+Enter для отправки</small>
+              </div>
+              <button
+                className="btn-primary"
+                onClick={handleSendMessage}
+                disabled={sendingMessage || !newMessage.trim()}
+                style={{padding: '10px 20px', minWidth: '120px'}}
+              >
+                {sendingMessage ? '⏳ Отправка...' : '📤 Отправить'}
+              </button>
+            </div>
+
             <div className="modal-footer" style={{paddingTop: '15px', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '10px', justifyContent: 'flex-end'}}>
-              <button className="btn-secondary" onClick={() => setSelectedDialog(null)}>
+              <button className="btn-secondary" onClick={() => { setSelectedDialog(null); setNewMessage(''); }}>
                 Закрыть
               </button>
               <button 

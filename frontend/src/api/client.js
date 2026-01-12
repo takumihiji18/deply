@@ -158,6 +158,10 @@ export const importDialogs = (campaignId, file) => {
   });
 };
 
+// Отправка сообщения пользователю
+export const sendMessageToUser = (campaignId, sessionName, userId, message) =>
+  api.post(`/dialogs/${campaignId}/send/${sessionName}/${userId}`, { message });
+
 // Proxies
 export const getProxies = (campaignId) => api.get(`/proxies/${campaignId}`);
 export const addProxy = (campaignId, proxyUrl, proxyName = null) => 

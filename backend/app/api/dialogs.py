@@ -20,6 +20,10 @@ class UpdateDialogStatusRequest(BaseModel):
     status: DialogStatus
 
 
+class SendMessageRequest(BaseModel):
+    message: str
+
+
 router = APIRouter(prefix="/dialogs", tags=["dialogs"])
 
 
@@ -628,24 +632,26 @@ async def export_dialogs(campaign_id: str, format: str):
             
             content = json.dumps(export_data, ensure_ascii=False, indent=2)
             export_filename = f"dialogs_{safe_campaign_name}_{timestamp}.json"
+            encoded_filename = quote(export_filename)
             
             return Response(
-                content=content,
-                media_type="application/json",
+                content=content.encode('utf-8'),
+                media_type="application/json; charset=utf-8",
                 headers={
-                    "Content-Disposition": f'attachment; filename="{export_filename}"; filename*=UTF-8\'\'{export_filename}'
+                    "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
                 }
             )
         
         else:  # html
             html_content = _generate_html_export(dialogs_data, campaign.name)
             export_filename = f"dialogs_{safe_campaign_name}_{timestamp}.html"
+            encoded_filename = quote(export_filename)
             
             return Response(
-                content=html_content,
+                content=html_content.encode('utf-8'),
                 media_type="text/html; charset=utf-8",
                 headers={
-                    "Content-Disposition": f'attachment; filename="{export_filename}"; filename*=UTF-8\'\'{export_filename}'
+                    "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
                 }
             )
     
@@ -879,6 +885,140 @@ async def get_dialog(campaign_id: str, session_name: str, user_id: int):
         username=username,
         messages=messages
     )
+
+
+
+
+@router.post("/{campaign_id}/send/{session_name}/{user_id}")
+async def send_message_to_user(
+    campaign_id: str,
+    session_name: str, 
+    user_id: int,
+    data: SendMessageRequest
+):
+    """
+    Отправить сообщение пользователю от имени аккаунта.
+    Сообщение будет отправлено через Telegram и сохранено в историю диалога.
+    """
+    import asyncio
+    from telethon import TelegramClient
+    from telethon.errors import FloodWaitError
+    
+    campaign = await db.get_campaign(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Находим аккаунт
+    account = None
+    for acc in campaign.accounts:
+        if acc.session_name == session_name:
+            account = acc
+            break
+    
+    if not account:
+        raise HTTPException(status_code=404, detail=f"Account {session_name} not found in campaign")
+    
+    # Определяем пути
+    current_file = os.path.abspath(__file__)
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+    
+    work_folder = campaign.work_folder
+    if not os.path.isabs(work_folder):
+        work_folder = os.path.join(project_root, work_folder)
+    
+    # Путь к session файлу
+    session_path = os.path.join(work_folder, "sessions", session_name)
+    session_file = session_path + ".session"
+    
+    if not os.path.exists(session_file):
+        # Пробуем альтернативный путь
+        session_path = os.path.join(project_root, "data", "sessions", session_name)
+        session_file = session_path + ".session"
+        if not os.path.exists(session_file):
+            raise HTTPException(status_code=404, detail=f"Session file not found for {session_name}")
+    
+    # Находим username из файла диалога
+    convos_dir = os.path.join(work_folder, "convos")
+    username = None
+    dialog_file = None
+    
+    if os.path.exists(convos_dir):
+        for filename in os.listdir(convos_dir):
+            if filename.startswith(f"{session_name}_{user_id}") and filename.endswith('.jsonl'):
+                dialog_file = os.path.join(convos_dir, filename)
+                parts = filename.replace('.jsonl', '').split('_', 2)
+                if len(parts) > 2:
+                    username = parts[2]
+                break
+    
+    try:
+        # Подключаемся к Telegram
+        client = TelegramClient(
+            session_path,
+            account.api_id,
+            account.api_hash,
+            connection_retries=1,
+            retry_delay=1,
+            timeout=30
+        )
+        
+        await client.connect()
+        
+        if not await client.is_user_authorized():
+            await client.disconnect()
+            raise HTTPException(status_code=401, detail="Account not authorized")
+        
+        # Получаем entity пользователя
+        try:
+            entity = await client.get_input_entity(user_id)
+        except ValueError:
+            # Пробуем по username если есть
+            if username:
+                try:
+                    entity = await client.get_input_entity(f"@{username}")
+                except ValueError:
+                    await client.disconnect()
+                    raise HTTPException(status_code=404, detail=f"Cannot find user {user_id}/@{username}")
+            else:
+                await client.disconnect()
+                raise HTTPException(status_code=404, detail=f"Cannot find user {user_id}")
+        
+        # Отправляем сообщение
+        await client.send_message(entity, data.message)
+        
+        await client.disconnect()
+        
+        # Сохраняем сообщение в историю диалога
+        if dialog_file and os.path.exists(dialog_file):
+            with open(dialog_file, 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'role': 'assistant',
+                    'content': data.message
+                }, ensure_ascii=False) + '\n')
+        elif convos_dir:
+            # Создаём новый файл диалога
+            os.makedirs(convos_dir, exist_ok=True)
+            if username:
+                new_dialog_file = os.path.join(convos_dir, f"{session_name}_{user_id}_{username}.jsonl")
+            else:
+                new_dialog_file = os.path.join(convos_dir, f"{session_name}_{user_id}.jsonl")
+            with open(new_dialog_file, 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'role': 'assistant',
+                    'content': data.message
+                }, ensure_ascii=False) + '\n')
+        
+        return {"status": "sent", "user_id": user_id, "session_name": session_name}
+    
+    except FloodWaitError as e:
+        raise HTTPException(status_code=429, detail=f"Telegram flood wait: {e.seconds} seconds")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Send message error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to send message: {str(e)}")
 
 
 @router.delete("/{campaign_id}/{session_name}/{user_id}")
