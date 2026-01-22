@@ -16,12 +16,14 @@ app = FastAPI(
 )
 
 # CORS middleware для React frontend
+# Разрешаем все origins (для production лучше указать конкретные домены)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # В production указать конкретный домен
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,  # Отключаем credentials для совместимости с wildcard
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Подключаем роутеры
