@@ -197,7 +197,7 @@ class CampaignRunner:
                 except asyncio.TimeoutError:
                     print(f"Process {campaign_id} did not terminate in time, killing...")
                     try:
-                    process.kill()
+                        process.kill()
                         await asyncio.wait_for(process.wait(), timeout=5)
                     except Exception as e:
                         print(f"Warning: kill failed: {e}")
@@ -206,7 +206,7 @@ class CampaignRunner:
             
             # Удаляем из списка запущенных (даже если что-то пошло не так)
             if campaign_id in self.running_campaigns:
-            del self.running_campaigns[campaign_id]
+                del self.running_campaigns[campaign_id]
             
             # Обновляем статус в БД
             campaign.status = CampaignStatus.STOPPED
