@@ -172,7 +172,7 @@ class CampaignRunner:
             
             # Пытаемся мягко завершить процесс
             try:
-            process.terminate()
+                process.terminate()
             except Exception as e:
                 print(f"Warning: terminate failed: {e}")
             
@@ -184,7 +184,7 @@ class CampaignRunner:
                 except subprocess.TimeoutExpired:
                     print(f"Process {campaign_id} did not terminate in time, killing...")
                     try:
-                    process.kill()
+                        process.kill()
                         process.wait(timeout=5)
                     except Exception as e:
                         print(f"Warning: kill failed: {e}")
