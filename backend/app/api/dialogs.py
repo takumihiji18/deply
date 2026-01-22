@@ -1,3 +1,6 @@
+"""
+Dialogs API - управление диалогами кампаний
+"""
 from fastapi import APIRouter, HTTPException, File, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
@@ -44,14 +47,8 @@ class SendMessageRequest(BaseModel):
 router = APIRouter(prefix="/dialogs", tags=["dialogs"])
 
 
-# ============================================================
-# Хелпер для работы со статусами диалогов
-# Статусы хранятся в campaigns_metadata/{campaign_id}_statuses.json
-# для надёжности (не зависит от work_folder)
-# ============================================================
-
 def _get_statuses_dir() -> str:
-    """Возвращает директорию для хранения статусов"""
+    """Возвращает директорию для хранения статусов диалогов"""
     current_file = os.path.abspath(__file__)
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
     statuses_dir = os.path.join(project_root, "campaigns_metadata")
