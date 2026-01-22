@@ -1,4 +1,6 @@
-FROM python:3.12-slim
+FROM python:3.11-slim
+
+WORKDIR /app
 
 # Установка системных зависимостей
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -6,29 +8,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Создание пользователя приложения
-RUN groupadd --gid 2000 app && \
-    useradd --uid 2000 --gid 2000 -m -d /app app
-
-# Установка рабочей директории
-WORKDIR /app
-
-# Копирование файлов зависимостей
+# Копирование и установка зависимостей
 COPY requirements.txt .
-
-# Установка Python зависимостей
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Копирование всех файлов проекта
-COPY --chown=app:app . .
-
-# Переключение на пользователя приложения
-USER app
+COPY . .
 
 # Открытие порта
 EXPOSE 8000
 
 # Команда запуска
-CMD ["bash", "start.sh"]
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
