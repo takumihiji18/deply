@@ -290,4 +290,3 @@ async def reset_campaign_status(campaign_id: str):
         "message": f"Campaign status changed from {old_status} to stopped"
     }
 
-

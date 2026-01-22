@@ -20,9 +20,14 @@ from telethon.errors import (
     UserDeactivatedError,
     UserDeactivatedBanError,
     PhoneNumberBannedError,
-    RPCError
+    RPCError,
+    PeerIdInvalidError,
+    ChatWriteForbiddenError,
+    UserBannedInChannelError
 )
+from telethon.errors.rpcerrorlist import FrozenMethodInvalidError
 from telethon import functions
+from telethon.tl.functions.help import GetConfigRequest
 
 # Импорт для работы с прокси
 try:
@@ -91,6 +96,13 @@ if not os.path.exists(PROCESSED_FILE):
 
 # Файл для отслеживания отправленных follow-up сообщений
 FOLLOW_UP_SENT_FILE = os.path.join(WORK_FOLDER, "follow_up_sent.json")
+
+# ======================== ACCOUNT COOLDOWN (ОТЛЁЖКА) ========================
+# Время отлёжки аккаунта при ошибках типа FrozenMethodInvalidError (в часах)
+ACCOUNT_COOLDOWN_HOURS = CONFIG.get("ACCOUNT_COOLDOWN_HOURS", 5)
+
+# Файл для хранения информации о "замороженных" аккаунтах
+ACCOUNT_COOLDOWN_FILE = os.path.join(WORK_FOLDER, "account_cooldown.json")
 
 # ======================== LOGGING ========================
 def _ts_local() -> str:
@@ -384,6 +396,93 @@ async def mark_processed(client: TelegramClient, user: User, uid: int):
     except Exception as e:
         log_error(f"{client.session.filename}: cannot write processed: {e!r}")
 
+# ======================== ACCOUNT COOLDOWN FUNCTIONS ========================
+
+def load_account_cooldowns() -> dict:
+    """Загружает информацию об аккаунтах в отлёжке"""
+    if os.path.exists(ACCOUNT_COOLDOWN_FILE):
+        try:
+            with open(ACCOUNT_COOLDOWN_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            pass
+    return {}
+
+
+def save_account_cooldowns(data: dict):
+    """Сохраняет информацию об аккаунтах в отлёжке"""
+    try:
+        with open(ACCOUNT_COOLDOWN_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        log_error(f"Failed to save account cooldowns: {e!r}")
+
+
+def set_account_cooldown(session_name: str, reason: str):
+    """
+    Помечает аккаунт как "в отлёжке".
+    Аккаунт будет пропускаться до истечения времени cooldown.
+    """
+    data = load_account_cooldowns()
+    cooldown_until = (_get_local_time() + datetime.timedelta(hours=ACCOUNT_COOLDOWN_HOURS)).isoformat()
+    
+    data[session_name] = {
+        "cooldown_until": cooldown_until,
+        "reason": reason,
+        "set_at": _ts_local()
+    }
+    
+    save_account_cooldowns(data)
+    log_error(
+        f"🛑 {session_name}: АККАУНТ ОТПРАВЛЕН В ОТЛЁЖКУ на {ACCOUNT_COOLDOWN_HOURS} часов\n"
+        f"  Причина: {reason}\n"
+        f"  Возобновление работы: {cooldown_until}"
+    )
+
+
+def is_account_in_cooldown(session_name: str) -> tuple[bool, Optional[str], Optional[str]]:
+    """
+    Проверяет, находится ли аккаунт в отлёжке.
+    Returns: (is_in_cooldown, cooldown_until, reason)
+    """
+    data = load_account_cooldowns()
+    
+    if session_name not in data:
+        return False, None, None
+    
+    cooldown_info = data[session_name]
+    cooldown_until_str = cooldown_info.get("cooldown_until")
+    
+    if not cooldown_until_str:
+        return False, None, None
+    
+    try:
+        # Парсим время без timezone
+        cooldown_until = datetime.datetime.fromisoformat(cooldown_until_str.replace('+00:00', ''))
+        current_time = _get_local_time().replace(tzinfo=None)
+        
+        if current_time < cooldown_until:
+            return True, cooldown_until_str, cooldown_info.get("reason", "Unknown")
+        else:
+            # Время вышло, удаляем из списка
+            del data[session_name]
+            save_account_cooldowns(data)
+            log_info(f"✅ {session_name}: cooldown закончился, аккаунт снова активен")
+            return False, None, None
+    except Exception as e:
+        log_error(f"Error parsing cooldown for {session_name}: {e}")
+        return False, None, None
+
+
+def clear_account_cooldown(session_name: str):
+    """Снимает отлёжку с аккаунта"""
+    data = load_account_cooldowns()
+    if session_name in data:
+        del data[session_name]
+        save_account_cooldowns(data)
+        log_info(f"✅ {session_name}: cooldown снят вручную")
+
+
 # ======================== FOLLOW-UP ========================
 import re
 
@@ -426,19 +525,34 @@ def save_follow_up_sent(data: dict):
 def is_follow_up_sent(session_name: str, user_id: int, username: str = None) -> bool:
     """
     Проверяет, был ли отправлен follow-up для данного пользователя.
-    Проверяет оба ключа: с username и без (для совместимости).
+    Проверяет ВСЕ возможные ключи для надёжности:
+    1. session_user_id
+    2. session_user_id_username
+    3. Также проверяет все ключи, начинающиеся с session_user_id
     """
     data = load_follow_up_sent()
     
-    # Проверяем ключ с username (новый формат)
+    # Базовый ключ без username
+    key_without_username = f"{session_name}_{user_id}"
+    
+    # Прямая проверка ключа без username
+    if key_without_username in data:
+        return True
+    
+    # Проверяем ключ с username
     if username:
         key_with_username = f"{session_name}_{user_id}_{username}"
         if key_with_username in data:
             return True
     
-    # Проверяем ключ без username (старый формат, для совместимости)
-    key_without_username = f"{session_name}_{user_id}"
-    return key_without_username in data
+    # Проверяем ВСЕ ключи, которые начинаются с session_name_user_id
+    # Это защищает от случаев когда username изменился
+    prefix = f"{session_name}_{user_id}"
+    for key in data.keys():
+        if key.startswith(prefix):
+            return True
+    
+    return False
 
 
 def mark_follow_up_sent(session_name: str, user_id: int, username: str = None):
@@ -613,6 +727,23 @@ async def send_follow_up_if_needed(client: TelegramClient, session_name: str) ->
             if is_follow_up_sent(session_name, user_id, username):
                 continue
             
+            # Дополнительная проверка: читаем последние 2 сообщения из файла
+            # Если оба от assistant - значит follow-up уже был (или что-то пошло не так)
+            try:
+                path = convo_path(session_name, user_id, username)
+                if os.path.exists(path):
+                    with open(path, 'r', encoding='utf-8') as f:
+                        lines = f.readlines()
+                        if len(lines) >= 2:
+                            last_two = [json.loads(l.strip()) for l in lines[-2:] if l.strip()]
+                            if len(last_two) >= 2 and all(m.get('role') == 'assistant' for m in last_two):
+                                # Два последних сообщения от бота = follow-up уже был
+                                log_info(f"  {session_name}_{user_id}: skip follow-up (2 consecutive assistant messages)")
+                                mark_follow_up_sent(session_name, user_id, username)  # Помечаем для надёжности
+                                continue
+            except Exception as e:
+                log_error(f"Error checking last messages for {session_name}_{user_id}: {e}")
+            
             # Проверяем, не обработан ли уже пользователь
             if already_processed(user_id):
                 continue
@@ -777,13 +908,90 @@ def parse_proxy_url(url: str | None):
         log_error(f"Failed to parse proxy URL {url}: {e!r}")
         return None
 
-async def check_proxy_connection(proxy_dict: dict, timeout: int = 5) -> bool:
+async def check_proxy_tcp(proxy_dict: dict, timeout: int = 5) -> tuple[bool, Optional[str]]:
     """
-    Проверяет подключение к Telegram API через прокси.
-    Делает простой HTTP запрос к Telegram для проверки доступности.
+    Слой 1: Проверяет TCP соединение с прокси (жив ли прокси).
     
-    ВАЖНО: Одна попытка, быстрый таймаут (5 сек).
+    Returns: (ok, error_message)
+    """
+    if not proxy_dict:
+        return True, None
+    
+    addr = proxy_dict.get('addr', 'unknown')
+    port = proxy_dict.get('port', 0)
+    
+    try:
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(addr, port), 
+            timeout=timeout
+        )
+        writer.close()
+        await writer.wait_closed()
+        return True, None
+    except asyncio.TimeoutError:
+        return False, "TCP timeout"
+    except Exception as e:
+        return False, f"TCP error: {type(e).__name__}"
+
+
+async def check_proxy_mtproto(proxy_dict: dict, api_id: int = None, api_hash: str = None, timeout: float = 15.0) -> tuple[bool, Optional[int], Optional[str]]:
+    """
+    Слой 2: Проверяет MTProto соединение через прокси к Telegram DC.
+    Использует help.getConfig который не требует авторизации.
+    
+    Returns: (ok, ping_ms, error_message)
+    """
+    if not proxy_dict:
+        return True, None, None
+    
+    # Используем дефолтные API credentials если не указаны (для проверки)
+    # В продакшене лучше передавать реальные
+    if not api_id or not api_hash:
+        # Telegram test credentials (публичные)
+        api_id = 2040
+        api_hash = "b18441a1ff607e10a989891a5462e627"
+    
+    import time
+    client = None
+    
+    try:
+        client = TelegramClient(
+            session=":memory:",  # Не создаём файл сессии
+            api_id=api_id,
+            api_hash=api_hash,
+            proxy=proxy_dict,
+            timeout=timeout,
+            request_retries=1,
+            connection_retries=1,
+        )
+        
+        t0 = time.perf_counter()
+        await client.connect()
+        await client(GetConfigRequest())  # Проверка что Telegram реально отвечает
+        dt_ms = int((time.perf_counter() - t0) * 1000)
+        
+        return True, dt_ms, None
+    except Exception as e:
+        return False, None, f"{type(e).__name__}: {str(e)[:50]}"
+    finally:
+        if client:
+            try:
+                await client.disconnect()
+            except:
+                pass
+
+
+async def check_proxy_connection(proxy_dict: dict, timeout: int = 5, full_check: bool = False, api_id: int = None, api_hash: str = None) -> bool:
+    """
+    Двухслойная проверка прокси:
+    1. TCP слой - прокси живой (быстрая проверка)
+    2. MTProto слой - Telegram отвечает через прокси (полная проверка)
+    
+    ВАЖНО: Одна попытка, быстрый таймаут.
     При неудаче - сразу возвращает False без повторов.
+    
+    full_check=False: только TCP (быстро, для цикла)
+    full_check=True: TCP + MTProto (надёжно, для старта)
     """
     if not proxy_dict:
         return True  # Нет прокси - считаем что подключение есть
@@ -791,29 +999,28 @@ async def check_proxy_connection(proxy_dict: dict, timeout: int = 5) -> bool:
     addr = proxy_dict.get('addr', 'unknown')
     port = proxy_dict.get('port', 0)
     
-    try:
-        username = proxy_dict.get('username')
-        password = proxy_dict.get('password')
-        
-        # Формируем proxy URL для aiohttp
-        if username and password:
-            proxy_url = f"http://{username}:{password}@{addr}:{port}"
-        else:
-            proxy_url = f"http://{addr}:{port}"
-        
-        # Проверяем доступность Telegram API
-        test_url = "https://api.telegram.org"
-        
-        # Короткий таймаут, без retry
-        async with aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=timeout, connect=3)
-        ) as session:
-            async with session.get(test_url, proxy=proxy_url) as resp:
-                return resp.status in [200, 401, 404]  # Любой ответ от сервера = прокси работает
+    # Слой 1: TCP проверка
+    tcp_ok, tcp_err = await check_proxy_tcp(proxy_dict, timeout)
     
-    except Exception as e:
-        log_error(f"❌ Proxy check FAILED for {addr}:{port}: {e!r}")
+    if not tcp_ok:
+        log_error(f"❌ Proxy TCP check FAILED for {addr}:{port}: {tcp_err}")
         return False
+    
+    # Если нужна только быстрая проверка - возвращаем результат TCP
+    if not full_check:
+        return True
+    
+    # Слой 2: MTProto проверка (полная проверка при старте)
+    mtproto_ok, ping_ms, mtproto_err = await check_proxy_mtproto(
+        proxy_dict, api_id, api_hash, timeout=15.0
+    )
+    
+    if not mtproto_ok:
+        log_error(f"❌ Proxy MTProto check FAILED for {addr}:{port}: {mtproto_err}")
+        return False
+    
+    log_info(f"✅ Proxy {addr}:{port} MTProto OK (ping: {ping_ms}ms)")
+    return True
 
 def load_proxies_from_file(path: str = "proxies.txt") -> list[str]:
     if not os.path.exists(path):
@@ -1048,6 +1255,10 @@ async def _reply_once_for_batch(
     try:
         await client.send_read_acknowledge(uid, max_id=batch[-1].id)
         log_info(f"{session_name}: ✓ marked messages as read for {uid}")
+    except FrozenMethodInvalidError as e:
+        # Аккаунт заморожен - отправляем в отлёжку
+        set_account_cooldown(session_name, f"FrozenMethodInvalidError: {e}")
+        raise  # Пробрасываем для выхода из обработки
     except Exception as e:
         log_error(f"{session_name}: failed to mark as read: {e!r}")
     
@@ -1113,6 +1324,18 @@ async def _reply_once_for_batch(
     try:
         await client.send_message(uid, reply)
         log_info(f"{session_name}: sent reply to {uid}")
+    except FrozenMethodInvalidError as e:
+        # Аккаунт заморожен - отправляем в отлёжку
+        set_account_cooldown(session_name, f"FrozenMethodInvalidError: {e}")
+        raise  # Пробрасываем для выхода
+    except PeerIdInvalidError as e:
+        # Невалидный peer - пропускаем этого пользователя, но не ставим cooldown
+        log_error(f"{session_name}: skip {uid} - PeerIdInvalidError (user deleted/blocked)")
+        return False
+    except ChatWriteForbiddenError as e:
+        # Нет прав писать - пропускаем
+        log_error(f"{session_name}: skip {uid} - ChatWriteForbiddenError")
+        return False
     except Exception as e:
         log_error(f"{session_name}: reply failed in chat {uid}: {e!r}")
         return False
@@ -1302,6 +1525,10 @@ async def poll_client(client: TelegramClient, session_name: str):
     except FloodWaitError as e:
         log_error(f"{session_name}: FloodWait {e.seconds}s, skipping this round")
         await asyncio.sleep(e.seconds)
+    
+    except FrozenMethodInvalidError as e:
+        # Аккаунт заморожен - уже обработано в вызывающем коде
+        raise
     
     except ConnectionError as e:
         log_error(f"{session_name}: connection error during poll: {e!r}")
@@ -1530,37 +1757,24 @@ async def setup_clients():
             if proxy_dict:
                 log_info(f"{name}: using proxy from proxies.txt")
         
-        # Обрабатываем прокси
+        # Обрабатываем прокси - проверка будет при первом подключении, не при старте
         proxy_required = proxy_dict is not None  # Если прокси настроена, она обязательна
-        proxy_ok = False
+        proxy_ok = True  # Предполагаем что работает, проверим при подключении
         
         if proxy_dict:
-            # Извлекаем для логирования
             addr = proxy_dict.get('addr', 'unknown')
             port = proxy_dict.get('port', 0)
             username = proxy_dict.get('username')
-            
-            # Проверяем прокси перед использованием
-            log_info(f"🔍 {name}: проверка прокси {addr}:{port}...")
-            
-            if await check_proxy_connection(proxy_dict):
-                log_info(
-                    f"✅ {name}: прокси {addr}:{port} работает корректно "
-                    f"(user: {username if username else 'нет авторизации'})"
-                )
-                proxy_ok = True
-            else:
-                log_error(
-                    f"❌ {name}: прокси {addr}:{port} НЕ РАБОТАЕТ!\n"
-                    f"  ⏭ Аккаунт будет пропускаться пока прокси не заработает.\n"
-                    f"  🔄 Проверка будет повторяться в каждом цикле."
-                )
-                proxy_ok = False
+            log_info(
+                f"📝 {name}: прокси настроена {addr}:{port} "
+                f"(user: {username if username else 'нет авторизации'})"
+            )
+            log_info(f"  ⏳ Проверка будет при первом подключении")
         else:
-            # КРИТИЧНО: Если прокси не настроена - ПРОПУСКАЕМ аккаунт!
-            log_error(f"⚠️ {name}: ПРОКСИ НЕ НАСТРОЕНА! Аккаунт будет ПРОПУЩЕН для безопасности.")
-            proxy_required = True  # Прокси ОБЯЗАТЕЛЬНА
-            proxy_ok = False  # Прокси НЕ работает (её нет)
+            # Без прокси - аккаунт всё равно можно использовать (опционально)
+            log_info(f"⚠️ {name}: прокси не настроена (будет работать напрямую)")
+            proxy_required = False  # Прокси не обязательна
+            proxy_ok = True
         
         # Сохраняем статус прокси для этой сессии
         PROXY_STATUS[name] = {
@@ -1616,6 +1830,15 @@ async def main():
         # Обрабатываем аккаунты по очереди
         for cl, name in clients:
             try:
+                # Проверяем, не в отлёжке ли аккаунт
+                in_cooldown, cooldown_until, cooldown_reason = is_account_in_cooldown(name)
+                if in_cooldown:
+                    log_info(
+                        f"⏸ {name}: аккаунт в отлёжке до {cooldown_until}\n"
+                        f"  Причина: {cooldown_reason}"
+                    )
+                    continue  # Пропускаем аккаунт
+                
                 # Проверяем статус прокси перед обработкой
                 proxy_status = PROXY_STATUS.get(name, {})
                 proxy_required = proxy_status.get("proxy_required", False)
@@ -1676,19 +1899,25 @@ async def main():
                 
                 # Если прокси не требуется или работает - продолжаем обработку
                 if not proxy_required or proxy_ok:
-                    # БЫСТРАЯ проверка прокси перед подключением (1 попытка, 5 сек)
+                    # Двухслойная проверка прокси перед подключением
                     if proxy_dict:
                         addr = proxy_dict.get('addr', 'unknown')
                         port = proxy_dict.get('port', 0)
-                        log_info(f"{name}: быстрая проверка прокси {addr}:{port}...")
                         
-                        if not await check_proxy_connection(proxy_dict):
+                        # Слой 1: быстрая TCP проверка
+                        log_info(f"{name}: проверка прокси {addr}:{port}...")
+                        tcp_ok, tcp_err = await check_proxy_tcp(proxy_dict, timeout=5)
+                        
+                        if not tcp_ok:
                             log_error(
-                                f"⏭ {name}: прокси недоступна - ПРОПУСК аккаунта\n"
-                                f"  Прокси: {addr}:{port}"
+                                f"⏭ {name}: прокси недоступна (TCP) - ПРОПУСК\n"
+                                f"  Прокси: {addr}:{port}\n"
+                                f"  Ошибка: {tcp_err}"
                             )
                             PROXY_STATUS[name]["proxy_ok"] = False
-                            continue  # Сразу пропускаем, без retry
+                            continue
+                        
+                        log_info(f"  ✓ TCP OK, подключаемся к Telegram...")
                     
                     # Подключаемся
                     await cl.start()
@@ -1751,6 +1980,14 @@ async def main():
                     f"  ⚠️ РЕКОМЕНДАЦИЯ: Проверьте статус аккаунта в официальном Telegram!\n"
                     f"  Error details: {e!r}"
                 )
+            
+            except FrozenMethodInvalidError as e:
+                # Аккаунт заморожен - отправляем в отлёжку
+                set_account_cooldown(name, f"FrozenMethodInvalidError: аккаунт заморожен Telegram")
+            
+            except PeerIdInvalidError as e:
+                # Невалидный peer - это не критическая ошибка, просто логируем
+                log_error(f"⚠️ {name}: PeerIdInvalidError - {e}")
             
             except FloodWaitError as e:
                 wait_seconds = e.seconds
