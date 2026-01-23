@@ -57,10 +57,11 @@ class TelegramSettings(BaseModel):
     history_limit: int = 20
     pre_read_delay_range: List[float] = [5, 10]
     read_reply_delay_range: List[float] = [5, 10]
-    account_loop_delay_range: List[float] = [90, 180]
+    account_loop_delay_range: List[float] = [300, 600]  # Задержка между аккаунтами (5-10 минут)
     dialog_wait_window_range: List[float] = [40, 60]
-    sleep_periods: List[str] = ["20:00-08:00", "13:00-14:30"]
+    sleep_periods: List[str] = ["00:00-15:00", "19:00-00:00"]  # Периоды сна
     timezone_offset: int = 3
+    ignore_bot_usernames: bool = True  # Не отвечать ботам (username начинается на i7/i8)
     follow_up: FollowUpSettings = FollowUpSettings()  # Настройки follow-up
 
 

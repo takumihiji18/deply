@@ -171,6 +171,20 @@ function CampaignSettings({ campaign, onUpdate }) {
         </div>
 
         <div className="form-group">
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.telegram_settings.ignore_bot_usernames !== false}
+              onChange={(e) => handleTelegramChange('ignore_bot_usernames', e.target.checked)}
+            />
+            {' '}Не отвечать ботам
+          </label>
+          <small style={{color: '#718096', marginTop: '5px', display: 'block'}}>
+            Игнорировать пользователей с юзернеймами, начинающимися на i7 или i8 (обычно это боты)
+          </small>
+        </div>
+
+        <div className="form-group">
           <label>Лимит пересылаемых сообщений</label>
           <input
             type="number"

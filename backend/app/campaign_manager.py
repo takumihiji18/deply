@@ -458,6 +458,8 @@ class CampaignRunner:
                 "DIALOG_WAIT_WINDOW_RANGE": campaign.telegram_settings.dialog_wait_window_range,
                 "SLEEP_PERIODS": campaign.telegram_settings.sleep_periods,
                 "TIMEZONE_OFFSET": campaign.telegram_settings.timezone_offset,
+                # Фильтр ботов (не отвечать на юзернеймы начинающиеся на i7/i8)
+                "IGNORE_BOT_USERNAMES": campaign.telegram_settings.ignore_bot_usernames if hasattr(campaign.telegram_settings, 'ignore_bot_usernames') else True,
                 # Follow-up настройки
                 "FOLLOW_UP": {
                     "enabled": campaign.telegram_settings.follow_up.enabled if campaign.telegram_settings.follow_up else False,

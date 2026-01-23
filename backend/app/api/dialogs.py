@@ -915,12 +915,21 @@ async def delete_dialog(campaign_id: str, session_name: str, user_id: int):
 
 def _parse_proxy_url(url: str):
     """Парсит прокси URL для Telethon"""
-    if not url or not SOCKS_AVAILABLE:
+    if not url:
+        return None
+    
+    # Если python-socks не установлен, возвращаем None
+    if not SOCKS_AVAILABLE or ProxyType is None:
+        print(f"Warning: python-socks not available, proxy will not be used")
         return None
     
     try:
         u = urlparse(url)
-        proxy_type = u.scheme.upper()
+        proxy_type = (u.scheme or '').upper()
+        
+        if not proxy_type or not u.hostname or not u.port:
+            print(f"Warning: Invalid proxy URL format: {url}")
+            return None
         
         if proxy_type == 'HTTP':
             ptype = ProxyType.HTTP
@@ -929,8 +938,10 @@ def _parse_proxy_url(url: str):
         elif proxy_type == 'SOCKS4':
             ptype = ProxyType.SOCKS4
         else:
+            print(f"Warning: Unsupported proxy type: {proxy_type}")
             return None
         
+        # Формируем словарь для Telethon
         proxy_dict = {
             'proxy_type': ptype,
             'addr': u.hostname,
@@ -938,12 +949,14 @@ def _parse_proxy_url(url: str):
             'rdns': True
         }
         
+        # Добавляем авторизацию только если оба поля заполнены
         if u.username and u.password:
             proxy_dict['username'] = u.username
             proxy_dict['password'] = u.password
         
         return proxy_dict
-    except Exception:
+    except Exception as e:
+        print(f"Error parsing proxy URL: {e}")
         return None
 
 
@@ -987,22 +1000,31 @@ async def send_message_to_user(
     if not os.path.exists(session_path + ".session"):
         raise HTTPException(status_code=404, detail=f"Session file not found for {session_name}")
     
-    # Настраиваем прокси
-    proxy_dict = None
+    # Настраиваем прокси (опционально)
+    proxy_config = None
+    proxy_url = None
+    
     if account.proxy_id:
         for proxy in campaign.proxies:
             if proxy.id == account.proxy_id:
-                proxy_dict = _parse_proxy_url(proxy.url)
+                proxy_url = proxy.url
                 break
+    
+    # Парсим прокси если есть
+    if proxy_url and SOCKS_AVAILABLE and ProxyType is not None:
+        proxy_config = _parse_proxy_url(proxy_url)
+        if proxy_config:
+            print(f"Using proxy for {session_name}: {proxy_config.get('addr')}:{proxy_config.get('port')}")
     
     # Создаём клиент и отправляем сообщение
     client = None
     try:
+        # Создаём клиент (с прокси или без)
         client = TelegramClient(
             session_path,
             account.api_id,
             account.api_hash,
-            proxy=proxy_dict,
+            proxy=proxy_config,
             connection_retries=1,
             timeout=15
         )
@@ -1013,7 +1035,13 @@ async def send_message_to_user(
             raise HTTPException(status_code=401, detail="Account not authorized")
         
         # Отправляем сообщение по user_id
-        await client.send_message(user_id, data.message)
+        try:
+            await client.send_message(user_id, data.message)
+        except ValueError as ve:
+            # Если не удалось найти пользователя по ID, пробуем через get_entity
+            print(f"send_message failed with ValueError, trying get_entity: {ve}")
+            entity = await client.get_entity(user_id)
+            await client.send_message(entity, data.message)
         
         # Сохраняем в историю диалога
         work_folder = campaign.work_folder
@@ -1042,7 +1070,11 @@ async def send_message_to_user(
     
     except RPCError as e:
         raise HTTPException(status_code=400, detail=f"Telegram error: {str(e)}")
+    except HTTPException:
+        raise
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to send message: {str(e)}")
     finally:
         if client:

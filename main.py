@@ -90,6 +90,11 @@ FOLLOW_UP_DELAY_HOURS = FOLLOW_UP_CFG.get("delay_hours", 24)
 FOLLOW_UP_PROMPT = FOLLOW_UP_CFG.get("prompt", 
     "Напиши короткое напоминание о себе. Вежливо напомни о предложении и спроси, актуально ли оно ещё. Если не актуально - попроси сообщить об этом. Сообщение должно быть кратким (2-3 предложения).")
 
+# ======================== BOT FILTER (IGNORE BOT USERNAMES) ========================
+# Не отвечать пользователям с юзернеймами, начинающимися на определённые префиксы
+IGNORE_BOT_USERNAMES = CONFIG.get("IGNORE_BOT_USERNAMES", True)
+BOT_USERNAME_PREFIXES = ["i7", "i8"]  # Префиксы юзернеймов ботов
+
 os.makedirs(WORK_FOLDER, exist_ok=True)
 if not os.path.exists(PROCESSED_FILE):
     open(PROCESSED_FILE, "w").close()
@@ -1503,6 +1508,20 @@ async def poll_client(client: TelegramClient, session_name: str):
             # Пропускаем обработанных
             if already_processed(uid):
                 continue
+            
+            # Фильтр по юзернейму (не отвечать ботам)
+            if IGNORE_BOT_USERNAMES:
+                user_entity = dialog.entity
+                if hasattr(user_entity, 'username') and user_entity.username:
+                    username_lower = user_entity.username.lower()
+                    is_bot_username = False
+                    for prefix in BOT_USERNAME_PREFIXES:
+                        if username_lower.startswith(prefix.lower()):
+                            log_info(f"[{session_name}] skip {uid} (@{user_entity.username}) — bot username (starts with '{prefix}')")
+                            is_bot_username = True
+                            break
+                    if is_bot_username:
+                        continue
             
             # Проверяем количество непрочитанных
             unread = dialog.unread_count
