@@ -631,11 +631,14 @@ async def export_dialogs(campaign_id: str, format: str):
             content = json.dumps(export_data, ensure_ascii=False, indent=2)
             export_filename = f"dialogs_{safe_campaign_name}_{timestamp}.json"
             
+            # URL-кодируем имя файла для заголовка (исправляет latin-1 ошибку)
+            encoded_filename = quote(export_filename, safe='')
+            
             return Response(
-                content=content,
-                media_type="application/json",
+                content=content.encode('utf-8'),  # Явно кодируем в UTF-8 байты
+                media_type="application/json; charset=utf-8",
                 headers={
-                    "Content-Disposition": f'attachment; filename="{export_filename}"; filename*=UTF-8\'\'{export_filename}'
+                    "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
                 }
             )
         
@@ -643,11 +646,14 @@ async def export_dialogs(campaign_id: str, format: str):
             html_content = _generate_html_export(dialogs_data, campaign.name)
             export_filename = f"dialogs_{safe_campaign_name}_{timestamp}.html"
             
+            # URL-кодируем имя файла для заголовка
+            encoded_filename = quote(export_filename, safe='')
+            
             return Response(
-                content=html_content,
+                content=html_content.encode('utf-8'),  # Явно кодируем в UTF-8 байты
                 media_type="text/html; charset=utf-8",
                 headers={
-                    "Content-Disposition": f'attachment; filename="{export_filename}"; filename*=UTF-8\'\'{export_filename}'
+                    "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
                 }
             )
     
