@@ -386,10 +386,24 @@ function CampaignSettings({ campaign, onUpdate }) {
               const periods = value.split(',').map(s => s.trim()).filter(s => s);
               handleTelegramChange('sleep_periods', periods);
             }}
-            placeholder="20:00-08:00, 13:00-14:30"
+            placeholder="00:00-15:00, 19:00-00:00"
           />
           <small style={{color: '#718096', marginTop: '5px', display: 'block'}}>
             Программа не будет работать в указанные периоды (ночь, обед и т.д.)
+          </small>
+        </div>
+
+        <div className="form-group">
+          <label>Время отлёжки аккаунта при Peer Flood (часы)</label>
+          <input
+            type="number"
+            min="1"
+            max="48"
+            value={settings.telegram_settings.account_cooldown_hours || 5}
+            onChange={(e) => handleTelegramChange('account_cooldown_hours', parseInt(e.target.value) || 5)}
+          />
+          <small style={{color: '#718096', marginTop: '5px', display: 'block'}}>
+            Если аккаунт получает ошибку Peer Flood, он будет пропущен на указанное время
           </small>
         </div>
       </div>

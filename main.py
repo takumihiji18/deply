@@ -46,8 +46,21 @@ print(f"Current directory: {os.getcwd()}")
 print(f"Config file exists: {os.path.exists('config.json')}")
 print("="*80)
 
-with open("config.json", "r", encoding="utf-8") as f:
-    CONFIG = json.load(f)
+# Безопасная загрузка конфига с обработкой ошибок
+try:
+    with open("config.json", "r", encoding="utf-8") as f:
+        CONFIG = json.load(f)
+except FileNotFoundError:
+    print("CRITICAL ERROR: config.json not found!")
+    print("Please create config.json in the current directory.")
+    sys.exit(1)
+except json.JSONDecodeError as e:
+    print(f"CRITICAL ERROR: config.json is not valid JSON!")
+    print(f"Error: {e}")
+    sys.exit(1)
+except Exception as e:
+    print(f"CRITICAL ERROR: Failed to load config.json: {e}")
+    sys.exit(1)
 
 WORK_FOLDER = CONFIG["WORK_FOLDER"]
 PROCESSED_FILE = CONFIG["PROCESSED_CLIENTS"]
@@ -1152,9 +1165,80 @@ async def forward_conversation(
         log_info(f"{client.session.filename}: forwarded {forwarded}/{len(msgs)} msgs to {chat_id}")
 
 # ======================== CORE PROCESSING ========================
+# Кэш для entity (уменьшает количество API-вызовов)
+_ENTITY_CACHE = {}
+
+def _clear_entity_cache():
+    """Очищает кэш entity (вызывать при отключении клиента)"""
+    global _ENTITY_CACHE
+    _ENTITY_CACHE = {}
+
+
+async def _fetch_chat_data(
+    client: TelegramClient,
+    uid: int,
+    session_name: str,
+    limit: int = None
+) -> tuple[list[Message], bool, list[dict], list[Message]]:
+    """
+    ОПТИМИЗАЦИЯ: Загружает ВСЮ информацию о чате ОДНИМ API-вызовом.
+    
+    Returns:
+        (raw_messages, has_outgoing, telegram_history, incoming_messages)
+        - raw_messages: сырые сообщения от Telegram
+        - has_outgoing: были ли исходящие сообщения
+        - telegram_history: история в формате GPT [{"role": ..., "content": ...}]
+        - incoming_messages: только входящие сообщения с текстом
+    """
+    if limit is None:
+        limit = TELEGRAM_HISTORY_LIMIT
+    
+    if not client.is_connected():
+        log_error(f"{session_name}: disconnected before _fetch_chat_data")
+        raise DisconnectedError("Client disconnected")
+    
+    try:
+        # ОДИН вызов API вместо 3-4!
+        messages = await client.get_messages(uid, limit=limit)
+        
+        has_outgoing = False
+        telegram_history = []
+        incoming_messages = []
+        
+        # Сообщения приходят от новых к старым
+        for m in messages:
+            if m.out:
+                has_outgoing = True
+            
+            text = (m.text or "").strip()
+            if text:
+                # Для истории GPT
+                role = "assistant" if m.out else "user"
+                telegram_history.append({
+                    "role": role,
+                    "content": text
+                })
+                
+                # Для входящих сообщений
+                if not m.out:
+                    incoming_messages.append(m)
+        
+        # Разворачиваем в хронологическом порядке
+        telegram_history.reverse()
+        incoming_messages.reverse()
+        
+        return messages, has_outgoing, telegram_history, incoming_messages
+    
+    except ConnectionError as e:
+        log_error(f"{session_name}: connection lost in _fetch_chat_data: {e!r}")
+        raise DisconnectedError(str(e))
+    except Exception as e:
+        log_error(f"{session_name}: _fetch_chat_data error for {uid}: {e!r}")
+        return [], False, [], []
+
+
 async def _has_outgoing_before(client: TelegramClient, uid: int) -> bool:
-    """Проверяет, были ли исходящие сообщения в диалоге"""
-    # Проверяем соединение перед операцией
+    """Проверяет, были ли исходящие сообщения в диалоге (legacy, для совместимости)"""
     if not client.is_connected():
         log_error(f"{client.session.filename}: disconnected before _has_outgoing_before")
         raise DisconnectedError("Client disconnected")
@@ -1172,12 +1256,13 @@ async def _has_outgoing_before(client: TelegramClient, uid: int) -> bool:
         log_error(f"{client.session.filename}: _has_outgoing_before failed for {uid}: {e!r}")
         return False
 
+
 async def _collect_incoming_slice(
     client: TelegramClient, 
     chat_id: int, 
     max_take: int = 50
 ) -> list[Message]:
-    """Собирает срез входящих сообщений"""
+    """Собирает срез входящих сообщений (legacy, для совместимости)"""
     res: list[Message] = []
     
     try:
@@ -1200,13 +1285,7 @@ async def _load_telegram_history(
     chat_id: int,
     limit: int = None
 ) -> list[dict]:
-    """
-    Загружает историю диалога из Telegram для контекста GPT.
-    Включает ВСЕ сообщения - и входящие, и исходящие.
-    
-    Возвращает список в формате GPT messages:
-    [{"role": "user"|"assistant", "content": "текст"}, ...]
-    """
+    """Загружает историю диалога из Telegram (legacy, для совместимости)"""
     if limit is None:
         limit = TELEGRAM_HISTORY_LIMIT
     
@@ -1214,16 +1293,12 @@ async def _load_telegram_history(
     
     try:
         messages = await client.get_messages(chat_id, limit=limit)
-        
-        # Сообщения приходят от новых к старым, разворачиваем
         messages = list(reversed(messages))
         
         for m in messages:
             text = (m.text or "").strip()
             if not text:
                 continue
-            
-            # m.out = True если это наше исходящее сообщение
             role = "assistant" if m.out else "user"
             history.append({
                 "role": role,
@@ -1389,41 +1464,210 @@ async def _reply_once_for_batch(
     
     return was_processed
 
+
+async def _reply_once_for_batch_optimized(
+    client: TelegramClient, 
+    uid: int, 
+    batch: list[Message],
+    session_name: str,
+    username: str = None,
+    preloaded_history: list[dict] = None  # ОПТИМИЗАЦИЯ: предзагруженная история
+) -> bool:
+    """
+    ОПТИМИЗИРОВАННАЯ версия _reply_once_for_batch.
+    Принимает предзагруженную историю чтобы избежать дополнительного API-вызова.
+    """
+    if not batch:
+        return False
+    
+    # Задержка перед чтением (ВАЖНО: имитация человека)
+    pre_delay = await delay_with_variance(PRE_READ_DELAY_RANGE, 0.2)
+    if pre_delay and pre_delay > 0:
+        log_info(f"{session_name}: ⏳ waiting {pre_delay:.1f}s before reading {uid} (human-like behavior)")
+    
+    # Отмечаем как прочитанное
+    try:
+        await client.send_read_acknowledge(uid, max_id=batch[-1].id)
+        log_info(f"{session_name}: ✓ marked messages as read for {uid}")
+    except FrozenMethodInvalidError as e:
+        set_account_cooldown(session_name, f"FrozenMethodInvalidError: {e}")
+        raise
+    except Exception as e:
+        log_error(f"{session_name}: failed to mark as read: {e!r}")
+    
+    # Задержка между чтением и ответом (ВАЖНО: имитация печати)
+    reply_delay = await delay_with_variance(READ_REPLY_DELAY_RANGE, 0.2)
+    if reply_delay and reply_delay > 0:
+        log_info(f"{session_name}: ⏳ read->reply delay {reply_delay:.1f}s for {uid} (simulating typing)")
+    
+    # ОПТИМИЗАЦИЯ: Используем предзагруженную историю если есть
+    if preloaded_history is not None:
+        telegram_history = preloaded_history
+        log_info(f"{session_name}: using preloaded history ({len(telegram_history)} messages) - API call saved!")
+    else:
+        # Fallback: загружаем историю (старый способ)
+        telegram_history = await _load_telegram_history(client, uid)
+    
+    # Также загружаем локальную историю (на случай если Telegram история неполная)
+    local_history = convo_load(session_name, uid, username)
+    
+    # Сохраняем полную историю из Telegram в файл
+    if telegram_history:
+        convo_save_full_history(session_name, uid, telegram_history, username)
+    
+    # Используем Telegram историю как основную
+    if telegram_history:
+        history = telegram_history
+        log_info(f"{session_name}: loaded {len(history)} messages from Telegram history for context")
+    else:
+        history = local_history
+        log_info(f"{session_name}: using local history ({len(history)} messages)")
+    
+    # Формируем текст от пользователя (новые сообщения)
+    joined_user_text = "\n\n".join(
+        f"[{m.date.strftime('%Y-%m-%d %H:%M:%S')}] {m.text.strip()}" 
+        for m in batch if (m.text or "").strip()
+    )
+    
+    # Формируем запрос к GPT
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    
+    # Добавляем историю, но исключаем последние сообщения которые уже в batch
+    if telegram_history:
+        history_without_batch = history[:-len(batch)] if len(batch) > 0 else history
+        messages.extend(history_without_batch)
+    else:
+        messages.extend(history)
+    
+    # Добавляем новые сообщения от пользователя
+    messages.append({"role": "user", "content": joined_user_text})
+    
+    # Генерируем ответ
+    reply = await openai_generate(messages)
+    
+    if not reply and OPENAI_CFG.get("USE_FALLBACK_ON_OPENAI_FAIL"):
+        reply = OPENAI_CFG.get("FALLBACK_TEXT", "")
+    
+    if not reply:
+        return False
+    
+    # Отправляем ответ
+    try:
+        await client.send_message(uid, reply)
+        log_info(f"{session_name}: sent reply to {uid}")
+    except FrozenMethodInvalidError as e:
+        set_account_cooldown(session_name, f"FrozenMethodInvalidError: {e}")
+        raise
+    except PeerIdInvalidError as e:
+        log_error(f"{session_name}: skip {uid} - PeerIdInvalidError (user deleted/blocked)")
+        return False
+    except ChatWriteForbiddenError as e:
+        log_error(f"{session_name}: skip {uid} - ChatWriteForbiddenError")
+        return False
+    except Exception as e:
+        log_error(f"{session_name}: reply failed in chat {uid}: {e!r}")
+        return False
+    
+    # Сохраняем в историю
+    if not telegram_history:
+        for m in batch:
+            text = (m.text or "").strip()
+            if text:
+                convo_append(session_name, uid, "user", text, username)
+    
+    convo_append(session_name, uid, "assistant", reply, username)
+    
+    # Проверяем триггерные фразы
+    low_reply = reply.lower()
+    pos_phrase = OPENAI_CFG["TRIGGER_PHRASES"]["POSITIVE"].lower()
+    neg_phrase = OPENAI_CFG["TRIGGER_PHRASES"]["NEGATIVE"].lower()
+    
+    # ОПТИМИЗАЦИЯ: Используем кэшированный entity если есть
+    cache_key = f"{session_name}_{uid}"
+    user = _ENTITY_CACHE.get(cache_key)
+    if not user:
+        try:
+            user = await client.get_entity(uid)
+            _ENTITY_CACHE[cache_key] = user
+        except:
+            pass
+    
+    # Флаг, был ли пользователь помечен как processed
+    was_processed = False
+    
+    if pos_phrase in low_reply:
+        if not already_processed(uid):
+            await forward_conversation(client, uid, "POSITIVE", user)
+            if user:
+                await mark_processed(client, user, uid)
+            was_processed = True
+            log_info(f"{session_name}: user {uid} marked as POSITIVE, stopping replies")
+    elif neg_phrase in low_reply:
+        if not already_processed(uid):
+            await forward_conversation(client, uid, "NEGATIVE", user)
+            if user:
+                await mark_processed(client, user, uid)
+            was_processed = True
+            log_info(f"{session_name}: user {uid} marked as NEGATIVE, stopping replies")
+    
+    return was_processed
+
+
+# Максимальное количество итераций в цикле ожидания новых сообщений
+MAX_CHAT_SESSION_ITERATIONS = 10
+
+
 async def handle_chat_session(
     client: TelegramClient, 
     chat_id: int, 
     unread_hint: int,
-    session_name: str
+    session_name: str,
+    user_entity=None  # ОПТИМИЗАЦИЯ: можно передать entity из poll_client
 ) -> None:
-    """Обрабатывает один чат с ожиданием новых сообщений в окне"""
+    """
+    Обрабатывает один чат с ожиданием новых сообщений в окне.
+    
+    ОПТИМИЗАЦИЯ: Использует единый вызов _fetch_chat_data вместо 3-4 отдельных вызовов.
+    """
     uid = chat_id
     
     # Получаем username пользователя для файла диалога
+    # ОПТИМИЗАЦИЯ: Используем переданный entity если есть, иначе берём из кэша диалогов
     username = None
-    try:
-        user = await client.get_entity(uid)
-        if hasattr(user, 'username') and user.username:
-            username = user.username
-    except:
-        pass
+    if user_entity and hasattr(user_entity, 'username') and user_entity.username:
+        username = user_entity.username
+    else:
+        # Кэшируем entity если ещё не в кэше
+        cache_key = f"{session_name}_{uid}"
+        if cache_key in _ENTITY_CACHE:
+            cached = _ENTITY_CACHE[cache_key]
+            if hasattr(cached, 'username') and cached.username:
+                username = cached.username
+        elif user_entity:
+            _ENTITY_CACHE[cache_key] = user_entity
+    
+    # ОПТИМИЗАЦИЯ: Один вызов API вместо 3-4!
+    # Получаем ВСЕ данные одним запросом
+    _, has_outgoing, telegram_history, incoming = await _fetch_chat_data(
+        client, uid, session_name, limit=TELEGRAM_HISTORY_LIMIT
+    )
     
     # Проверяем, писали ли мы в этот диалог ранее
-    if REPLY_ONLY_IF_PREV:
-        has_out = await _has_outgoing_before(client, uid)
-        if not has_out:
-            log_info(f"{session_name}: skip {uid} — no previous outgoing")
-            return
+    if REPLY_ONLY_IF_PREV and not has_outgoing:
+        log_info(f"{session_name}: skip {uid} — no previous outgoing")
+        return
     
-    # Собираем входящие сообщения
-    take = max(1, min(unread_hint or 0, 20)) or 10
-    incoming = await _collect_incoming_slice(client, uid, max_take=take)
+    # Фильтруем входящие сообщения
     incoming = [m for m in incoming if (m.text or "").strip()]
     
     if not incoming:
         return
     
-    # Отвечаем на первый батч
-    was_processed = await _reply_once_for_batch(client, uid, incoming, session_name, username)
+    # ОПТИМИЗАЦИЯ: Передаём уже загруженную историю в _reply_once_for_batch
+    was_processed = await _reply_once_for_batch_optimized(
+        client, uid, incoming, session_name, username, 
+        preloaded_history=telegram_history
+    )
     
     # Если пользователь был помечен как processed, останавливаем обработку
     if was_processed:
@@ -1432,8 +1676,11 @@ async def handle_chat_session(
     
     last_confirmed_id = incoming[-1].id
     
-    # Цикл ожидания новых сообщений
-    while True:
+    # Цикл ожидания новых сообщений (с лимитом итераций!)
+    iteration = 0
+    while iteration < MAX_CHAT_SESSION_ITERATIONS:
+        iteration += 1
+        
         # Проверяем соединение перед ожиданием
         if not client.is_connected():
             log_error(f"{session_name}: connection lost before wait window, exiting chat {uid}")
@@ -1442,7 +1689,7 @@ async def handle_chat_session(
         # Случайное окно ожидания из диапазона
         window_sec = random.uniform(*DIALOG_WAIT_WINDOW_RANGE)
         eta = (_get_local_time() + datetime.timedelta(seconds=window_sec)).strftime("%H:%M:%S")
-        log_info(f"{session_name}: stay in chat {uid} for {window_sec:.1f}s (until ~{eta} MSK)")
+        log_info(f"{session_name}: stay in chat {uid} for {window_sec:.1f}s (until ~{eta} MSK) [iteration {iteration}/{MAX_CHAT_SESSION_ITERATIONS}]")
         
         # Просто ждём указанное время (имитация что человек отошёл)
         await asyncio.sleep(window_sec)
@@ -1476,6 +1723,9 @@ async def handle_chat_session(
         last_confirmed_id = fresh[-1].id
         
         log_info(f"{session_name}: replied to new messages in chat {uid}, opening new window")
+    
+    # Достигли лимита итераций
+    log_info(f"{session_name}: max iterations ({MAX_CHAT_SESSION_ITERATIONS}) reached for chat {uid}, exiting")
 
 # ======================== POLL CLIENT ========================
 async def poll_client(client: TelegramClient, session_name: str):
@@ -1530,8 +1780,8 @@ async def poll_client(client: TelegramClient, session_name: str):
             
             processed_any_chat = True
             
-            # Обрабатываем чат
-            await handle_chat_session(client, uid, unread, session_name)
+            # Обрабатываем чат (передаём entity для оптимизации - не нужен лишний API-вызов)
+            await handle_chat_session(client, uid, unread, session_name, user_entity=dialog.entity)
         
         if not processed_any_chat:
             log_info(f"[{session_name}] no new messages on this account")
@@ -1574,6 +1824,7 @@ def auto_fix_session(session_path: str) -> bool:
     if not os.path.exists(session_file):
         return True  # Файл не существует, это нормально для новых сессий
     
+    conn = None
     try:
         # Подключаемся к SQLite
         conn = sqlite3.connect(session_file)
@@ -1629,15 +1880,20 @@ def auto_fix_session(session_path: str) -> bool:
             pass
         else:
             log_error(f"Unexpected session format ({len(columns)} columns): {session_file}")
-            conn.close()
             return False
         
-        conn.close()
         return True
         
     except Exception as e:
         log_error(f"Failed to check/fix session {session_file}: {e!r}")
         return False
+    finally:
+        # ВАЖНО: Всегда закрываем соединение чтобы избежать утечки ресурсов
+        if conn:
+            try:
+                conn.close()
+            except:
+                pass
 
 # ======================== PROXY STATUS TRACKING ========================
 # Глобальный словарь для отслеживания статуса прокси для каждой сессии

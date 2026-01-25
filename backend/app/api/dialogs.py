@@ -327,14 +327,22 @@ async def upload_dialog_history(campaign_id: str, file: UploadFile = File(...)):
     convos_dir = os.path.join(work_folder, "convos")
     os.makedirs(convos_dir, exist_ok=True)
     
-    # Сохраняем файл в папку convos
-    file_path = os.path.join(convos_dir, file.filename)
+    # БЕЗОПАСНОСТЬ: Защита от path traversal атаки
+    # Удаляем любые path-компоненты и оставляем только имя файла
+    safe_filename = os.path.basename(file.filename)
+    # Дополнительная санитизация: только безопасные символы
+    import re
+    safe_filename = re.sub(r'[^\w\-.]', '_', safe_filename)
+    if not safe_filename or safe_filename.startswith('.'):
+        safe_filename = f"dialog_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
+    
+    file_path = os.path.join(convos_dir, safe_filename)
     
     content = await file.read()
     with open(file_path, 'wb') as f:
         f.write(content)
     
-    return {"status": "uploaded", "filename": file.filename}
+    return {"status": "uploaded", "filename": safe_filename}
 
 
 @router.put("/{campaign_id}/status/{session_name}/{user_id}")

@@ -62,6 +62,7 @@ class TelegramSettings(BaseModel):
     sleep_periods: List[str] = ["00:00-15:00", "19:00-00:00"]  # Периоды сна
     timezone_offset: int = 3
     ignore_bot_usernames: bool = True  # Не отвечать ботам (username начинается на i7/i8)
+    account_cooldown_hours: int = 5  # Время отлёжки аккаунта при Peer Flood (в часах)
     follow_up: FollowUpSettings = FollowUpSettings()  # Настройки follow-up
 
 

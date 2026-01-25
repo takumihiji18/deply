@@ -460,6 +460,8 @@ class CampaignRunner:
                 "TIMEZONE_OFFSET": campaign.telegram_settings.timezone_offset,
                 # Фильтр ботов (не отвечать на юзернеймы начинающиеся на i7/i8)
                 "IGNORE_BOT_USERNAMES": campaign.telegram_settings.ignore_bot_usernames if hasattr(campaign.telegram_settings, 'ignore_bot_usernames') else True,
+                # Время отлёжки аккаунта при Peer Flood
+                "ACCOUNT_COOLDOWN_HOURS": campaign.telegram_settings.account_cooldown_hours if hasattr(campaign.telegram_settings, 'account_cooldown_hours') else 5,
                 # Follow-up настройки
                 "FOLLOW_UP": {
                     "enabled": campaign.telegram_settings.follow_up.enabled if campaign.telegram_settings.follow_up else False,
@@ -501,6 +503,7 @@ class CampaignRunner:
         if not os.path.exists(session_file):
             return True
         
+        conn = None
         try:
             conn = sqlite3.connect(session_file)
             cursor = conn.cursor()
@@ -549,12 +552,18 @@ class CampaignRunner:
                     conn.commit()
                     print(f"Session fixed successfully: {os.path.basename(session_file)}")
             
-            conn.close()
             return True
             
         except Exception as e:
             print(f"Failed to check/fix session {session_file}: {e}")
             return False
+        finally:
+            # ВАЖНО: Всегда закрываем соединение чтобы избежать утечки ресурсов
+            if conn:
+                try:
+                    conn.close()
+                except:
+                    pass
     
     def _read_logs_sync(self, campaign_id: str, process: subprocess.Popen):
         """Читать логи из процесса (синхронная версия для Windows)"""
