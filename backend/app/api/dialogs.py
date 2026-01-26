@@ -49,8 +49,8 @@ router = APIRouter(prefix="/dialogs", tags=["dialogs"])
 
 def _get_statuses_dir() -> str:
     """Возвращает директорию для хранения статусов диалогов"""
-        current_file = os.path.abspath(__file__)
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+    current_file = os.path.abspath(__file__)
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
     statuses_dir = os.path.join(project_root, "campaigns_metadata")
     os.makedirs(statuses_dir, exist_ok=True)
     return statuses_dir
