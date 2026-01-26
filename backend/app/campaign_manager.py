@@ -344,6 +344,21 @@ class CampaignRunner:
             api_map_lines = []
             account_configs = {}  # Хранить конфиг для каждого аккаунта (включая прокси)
             
+            # Возможные источники сессий (в разных окружениях путь может отличаться)
+            session_source_dirs = [
+                os.path.join(project_root, "data", "sessions"),
+                os.path.join(project_root, "backend", "data", "sessions"),
+                os.path.join(project_root, "backend", "server", "data", "sessions"),
+            ]
+
+            def _find_session_file(session_name: str) -> Optional[str]:
+                """Ищет .session файл в нескольких возможных директориях."""
+                for base_dir in session_source_dirs:
+                    candidate = os.path.join(base_dir, f"{session_name}.session")
+                    if os.path.exists(candidate):
+                        return candidate
+                return None
+
             for account in campaign.accounts:
                 print(f"\n--- Processing account: {account.session_name} ---")
                 print(f"  is_active: {account.is_active}")
@@ -355,15 +370,15 @@ class CampaignRunner:
                     print(f"  ⏭ SKIPPED (not active)")
                     continue
                 
-                # Копировать .session файл (из корня проекта)
-                src_session = os.path.join(project_root, "data", "sessions", f"{account.session_name}.session")
+                # Копировать .session файл (ищем в нескольких директориях)
+                src_session = _find_session_file(account.session_name)
                 dst_session = os.path.join(sessions_dir, f"{account.session_name}.session")
                 
-                print(f"  Source: {src_session}")
+                print(f"  Source: {src_session or 'NOT FOUND'}")
                 print(f"  Dest: {dst_session}")
-                print(f"  Source exists: {os.path.exists(src_session)}")
+                print(f"  Source exists: {os.path.exists(src_session) if src_session else False}")
                 
-                if os.path.exists(src_session):
+                if src_session and os.path.exists(src_session):
                     shutil.copy2(src_session, dst_session)
                     file_size = os.path.getsize(dst_session)
                     print(f"  ✓✓✓ Скопирован {account.session_name}.session ({file_size} байт)")
@@ -371,7 +386,10 @@ class CampaignRunner:
                     # Автоматически конвертировать старые сессии в новый формат
                     self._auto_fix_session(dst_session.replace('.session', ''))
                 else:
-                    print(f"  ✗✗✗ ОШИБКА: Файл не найден {src_session}")
+                    print(f"  ✗✗✗ ОШИБКА: Файл не найден для {account.session_name}")
+                    print(f"  Проверенные пути:")
+                    for base_dir in session_source_dirs:
+                        print(f"   - {os.path.join(base_dir, f'{account.session_name}.session')}")
                     print(f"  ✗✗✗ Проверьте что файл загружен через веб-интерфейс!")
                     continue
                 

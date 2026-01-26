@@ -49,8 +49,8 @@ router = APIRouter(prefix="/dialogs", tags=["dialogs"])
 
 def _get_statuses_dir() -> str:
     """Возвращает директорию для хранения статусов диалогов"""
-    current_file = os.path.abspath(__file__)
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+        current_file = os.path.abspath(__file__)
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
     statuses_dir = os.path.join(project_root, "campaigns_metadata")
     os.makedirs(statuses_dir, exist_ok=True)
     return statuses_dir
@@ -80,7 +80,7 @@ def _save_dialog_statuses(campaign_id: str, statuses: dict):
         with open(statuses_file, 'w', encoding='utf-8') as f:
             json.dump(statuses, f, ensure_ascii=False, indent=2)
         print(f"Saved dialog statuses to {statuses_file}")
-    except Exception as e:
+            except Exception as e:
         print(f"Error saving dialog statuses: {e}")
 
 
