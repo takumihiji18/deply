@@ -70,6 +70,36 @@ class CampaignRunner:
                 await db.save_campaign(campaign)
                 return False
             
+            # ============================================================
+            # ВАЖНО: Финальная проверка перед запуском процесса
+            # ============================================================
+            import time
+            
+            # Проверяем наличие критичных файлов
+            api_map_path = os.path.join(campaign_dir, "api_map.txt")
+            sessions_dir = os.path.join(campaign_dir, "data", "sessions")
+            
+            # Ждём пока файлы появятся (максимум 3 секунды)
+            for attempt in range(6):
+                api_map_exists = os.path.exists(api_map_path) and os.path.getsize(api_map_path) > 0
+                sessions_exist = os.path.exists(sessions_dir) and len([f for f in os.listdir(sessions_dir) if f.endswith('.session')]) > 0
+                
+                if api_map_exists and sessions_exist:
+                    print(f"✓ Pre-launch verification passed (attempt {attempt + 1})")
+                    break
+                else:
+                    print(f"⏳ Waiting for files... (attempt {attempt + 1}/6)")
+                    print(f"   api_map.txt: {'exists' if api_map_exists else 'MISSING'}")
+                    print(f"   sessions: {'found' if sessions_exist else 'MISSING'}")
+                    time.sleep(0.5)
+            else:
+                # После всех попыток всё равно логируем состояние
+                print(f"⚠ Pre-launch verification: files may not be ready")
+                print(f"   api_map.txt exists: {os.path.exists(api_map_path)}")
+                print(f"   sessions_dir exists: {os.path.exists(sessions_dir)}")
+                if os.path.exists(sessions_dir):
+                    print(f"   sessions_dir contents: {os.listdir(sessions_dir)}")
+            
             # Запустить процесс с main.py
             # На Windows используем subprocess.Popen
             # Важно: используем -u для unbuffered output чтобы логи сразу попадали в stdout
@@ -344,21 +374,6 @@ class CampaignRunner:
             api_map_lines = []
             account_configs = {}  # Хранить конфиг для каждого аккаунта (включая прокси)
             
-            # Возможные источники сессий (в разных окружениях путь может отличаться)
-            session_source_dirs = [
-                os.path.join(project_root, "data", "sessions"),
-                os.path.join(project_root, "backend", "data", "sessions"),
-                os.path.join(project_root, "backend", "server", "data", "sessions"),
-            ]
-
-            def _find_session_file(session_name: str) -> Optional[str]:
-                """Ищет .session файл в нескольких возможных директориях."""
-                for base_dir in session_source_dirs:
-                    candidate = os.path.join(base_dir, f"{session_name}.session")
-                    if os.path.exists(candidate):
-                        return candidate
-                return None
-
             for account in campaign.accounts:
                 print(f"\n--- Processing account: {account.session_name} ---")
                 print(f"  is_active: {account.is_active}")
@@ -370,15 +385,15 @@ class CampaignRunner:
                     print(f"  ⏭ SKIPPED (not active)")
                     continue
                 
-                # Копировать .session файл (ищем в нескольких директориях)
-                src_session = _find_session_file(account.session_name)
+                # Копировать .session файл (из корня проекта)
+                src_session = os.path.join(project_root, "data", "sessions", f"{account.session_name}.session")
                 dst_session = os.path.join(sessions_dir, f"{account.session_name}.session")
                 
-                print(f"  Source: {src_session or 'NOT FOUND'}")
+                print(f"  Source: {src_session}")
                 print(f"  Dest: {dst_session}")
-                print(f"  Source exists: {os.path.exists(src_session) if src_session else False}")
+                print(f"  Source exists: {os.path.exists(src_session)}")
                 
-                if src_session and os.path.exists(src_session):
+                if os.path.exists(src_session):
                     shutil.copy2(src_session, dst_session)
                     file_size = os.path.getsize(dst_session)
                     print(f"  ✓✓✓ Скопирован {account.session_name}.session ({file_size} байт)")
@@ -386,10 +401,7 @@ class CampaignRunner:
                     # Автоматически конвертировать старые сессии в новый формат
                     self._auto_fix_session(dst_session.replace('.session', ''))
                 else:
-                    print(f"  ✗✗✗ ОШИБКА: Файл не найден для {account.session_name}")
-                    print(f"  Проверенные пути:")
-                    for base_dir in session_source_dirs:
-                        print(f"   - {os.path.join(base_dir, f'{account.session_name}.session')}")
+                    print(f"  ✗✗✗ ОШИБКА: Файл не найден {src_session}")
                     print(f"  ✗✗✗ Проверьте что файл загружен через веб-интерфейс!")
                     continue
                 
@@ -425,6 +437,8 @@ class CampaignRunner:
                 api_map_path = os.path.join(campaign_dir, "api_map.txt")
                 with open(api_map_path, 'w', encoding='utf-8') as f:
                     f.write('\n'.join(api_map_lines))
+                    f.flush()  # Принудительный flush в буфер ОС
+                    os.fsync(f.fileno())  # Принудительная запись на диск
                 print(f"✓ Создан api_map.txt с {len(api_map_lines)} аккаунтами")
                 print(f"  Содержимое api_map.txt:")
                 for line in api_map_lines:
@@ -442,6 +456,8 @@ class CampaignRunner:
                 json_path = os.path.join(campaign_data_dir, f"{session_name}.json")
                 with open(json_path, 'w', encoding='utf-8') as f:
                     json.dump(config, f, indent=2)
+                    f.flush()
+                    os.fsync(f.fileno())
                 proxy_info = config.get('proxy', 'no proxy')[:50] if config.get('proxy') else 'NO PROXY'
                 print(f"✓ Создан {session_name}.json с прокси: {proxy_info}")
                 print(f"  Путь: {json_path}")
@@ -493,11 +509,15 @@ class CampaignRunner:
             config_path = os.path.join(campaign_dir, "config.json")
             with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=2, ensure_ascii=False)
+                f.flush()
+                os.fsync(f.fileno())
             
             # Создать prompt.txt
             prompt_path = os.path.join(campaign_dir, "prompt.txt")
             with open(prompt_path, 'w', encoding='utf-8') as f:
                 f.write(campaign.openai_settings.system_prompt)
+                f.flush()
+                os.fsync(f.fileno())
             
             # Создать processed_clients.txt с дефолтными ботами
             processed_path = os.path.join(campaign_dir, "processed_clients.txt")
@@ -506,9 +526,62 @@ class CampaignRunner:
                     f.write("178220800 | SpamBot\n")
                     f.write("5314653481 | PremiumBot\n")
             
+            # ============================================================
+            # ВАЖНО: Верификация созданных файлов
+            # Иногда файловая система не успевает синхронизироваться
+            # ============================================================
+            print(f"\n{'='*80}")
+            print("VERIFYING CREATED FILES...")
+            print(f"{'='*80}")
+            
+            # Принудительная синхронизация файловой системы
+            try:
+                import time
+                time.sleep(0.5)  # Небольшая задержка для sync
+                
+                # Проверяем критичные файлы
+                files_to_verify = [
+                    ("config.json", config_path),
+                    ("api_map.txt", os.path.join(campaign_dir, "api_map.txt")),
+                    ("prompt.txt", prompt_path),
+                ]
+                
+                # Добавляем сессии для проверки
+                for session_name in account_configs.keys():
+                    session_file = os.path.join(sessions_dir, f"{session_name}.session")
+                    files_to_verify.append((f"{session_name}.session", session_file))
+                    json_file = os.path.join(campaign_data_dir, f"{session_name}.json")
+                    files_to_verify.append((f"{session_name}.json", json_file))
+                
+                all_ok = True
+                for name, path in files_to_verify:
+                    exists = os.path.exists(path)
+                    size = os.path.getsize(path) if exists else 0
+                    status = f"✓ OK ({size} bytes)" if exists and size > 0 else "✗ MISSING/EMPTY"
+                    print(f"  {name}: {status}")
+                    if not exists or size == 0:
+                        all_ok = False
+                
+                if not all_ok:
+                    print(f"\n⚠ WARNING: Some files are missing or empty!")
+                    print(f"Waiting additional 1 second for filesystem sync...")
+                    time.sleep(1.0)
+                    
+                    # Повторная проверка
+                    for name, path in files_to_verify:
+                        if not os.path.exists(path) or os.path.getsize(path) == 0:
+                            print(f"  STILL MISSING: {name}")
+                
+                print(f"✓ File verification completed\n")
+                
+            except Exception as verify_err:
+                print(f"⚠ Verification warning: {verify_err}")
+            
             return config_path
         except Exception as e:
             print(f"Error creating config for campaign {campaign.id}: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def _auto_fix_session(self, session_path: str) -> bool:
