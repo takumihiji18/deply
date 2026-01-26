@@ -23,7 +23,8 @@ from telethon.errors import (
     RPCError,
     PeerIdInvalidError,
     ChatWriteForbiddenError,
-    UserBannedInChannelError
+    UserBannedInChannelError,
+    InputUserDeactivatedError
 )
 from telethon.errors.rpcerrorlist import FrozenMethodInvalidError
 from telethon import functions
@@ -107,6 +108,9 @@ FOLLOW_UP_PROMPT = FOLLOW_UP_CFG.get("prompt",
 # Не отвечать пользователям с юзернеймами, начинающимися на определённые префиксы
 IGNORE_BOT_USERNAMES = CONFIG.get("IGNORE_BOT_USERNAMES", True)
 BOT_USERNAME_PREFIXES = ["i7", "i8"]  # Префиксы юзернеймов ботов
+
+# Не отвечать пользователям без юзернейма
+IGNORE_NO_USERNAME = CONFIG.get("IGNORE_NO_USERNAME", True)
 
 os.makedirs(WORK_FOLDER, exist_ok=True)
 if not os.path.exists(PROCESSED_FILE):
@@ -1378,13 +1382,28 @@ async def _reply_once_for_batch(
     # Формируем запрос к GPT
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     
-    # Добавляем историю, но исключаем последние сообщения которые уже в batch
-    # Это предотвращает дублирование
-    if telegram_history:
-        # Берём историю кроме последних N сообщений (где N = len(batch))
-        # т.к. batch содержит последние входящие сообщения
-        history_without_batch = history[:-len(batch)] if len(batch) > 0 else history
-        messages.extend(history_without_batch)
+    # ИСПРАВЛЕНИЕ: Правильно убираем дубликаты из истории
+    # batch содержит только входящие (user), а history содержит ВСЕ сообщения
+    # Нужно отрезать только USER сообщения с конца, а не все подряд
+    if telegram_history and len(batch) > 0:
+        # Собираем тексты сообщений из batch для сравнения
+        batch_texts = set((m.text or "").strip() for m in batch if (m.text or "").strip())
+        
+        # Идём с конца истории и удаляем только USER сообщения которые есть в batch
+        history_cleaned = []
+        removed_count = 0
+        
+        for msg in reversed(history):
+            # Если это USER сообщение и его текст есть в batch - пропускаем (дубликат)
+            if msg.get('role') == 'user' and msg.get('content', '').strip() in batch_texts:
+                if removed_count < len(batch):
+                    removed_count += 1
+                    continue  # Пропускаем дубликат
+            history_cleaned.append(msg)
+        
+        # Разворачиваем обратно в хронологическом порядке
+        history_cleaned.reverse()
+        messages.extend(history_cleaned)
     else:
         messages.extend(history)
     
@@ -1416,6 +1435,18 @@ async def _reply_once_for_batch(
         # Нет прав писать - пропускаем
         log_error(f"{session_name}: skip {uid} - ChatWriteForbiddenError")
         return False
+    except InputUserDeactivatedError as e:
+        # Пользователь удалён - добавляем в стоп-лист и прекращаем обработку
+        log_error(f"{session_name}: skip {uid} - InputUserDeactivatedError (user deleted) - adding to stop list")
+        # Добавляем в processed чтобы больше не пытаться писать
+        try:
+            line = f"{uid} | (deleted_user)"
+            with open(PROCESSED_FILE, "a", encoding="utf-8") as f:
+                f.write(line + "\n")
+            log_info(f"{session_name}: added deleted user {uid} to stop list")
+        except Exception as write_err:
+            log_error(f"{session_name}: failed to add {uid} to stop list: {write_err}")
+        return True  # Возвращаем True чтобы выйти из chat session
     except Exception as e:
         log_error(f"{session_name}: reply failed in chat {uid}: {e!r}")
         return False
@@ -1532,10 +1563,28 @@ async def _reply_once_for_batch_optimized(
     # Формируем запрос к GPT
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     
-    # Добавляем историю, но исключаем последние сообщения которые уже в batch
-    if telegram_history:
-        history_without_batch = history[:-len(batch)] if len(batch) > 0 else history
-        messages.extend(history_without_batch)
+    # ИСПРАВЛЕНИЕ: Правильно убираем дубликаты из истории
+    # batch содержит только входящие (user), а history содержит ВСЕ сообщения
+    # Нужно отрезать только USER сообщения с конца, а не все подряд
+    if telegram_history and len(batch) > 0:
+        # Собираем тексты сообщений из batch для сравнения
+        batch_texts = set((m.text or "").strip() for m in batch if (m.text or "").strip())
+        
+        # Идём с конца истории и удаляем только USER сообщения которые есть в batch
+        history_cleaned = []
+        removed_count = 0
+        
+        for msg in reversed(history):
+            # Если это USER сообщение и его текст есть в batch - пропускаем (дубликат)
+            if msg.get('role') == 'user' and msg.get('content', '').strip() in batch_texts:
+                if removed_count < len(batch):
+                    removed_count += 1
+                    continue  # Пропускаем дубликат
+            history_cleaned.append(msg)
+        
+        # Разворачиваем обратно в хронологическом порядке
+        history_cleaned.reverse()
+        messages.extend(history_cleaned)
     else:
         messages.extend(history)
     
@@ -1564,6 +1613,18 @@ async def _reply_once_for_batch_optimized(
     except ChatWriteForbiddenError as e:
         log_error(f"{session_name}: skip {uid} - ChatWriteForbiddenError")
         return False
+    except InputUserDeactivatedError as e:
+        # Пользователь удалён - добавляем в стоп-лист и прекращаем обработку
+        log_error(f"{session_name}: skip {uid} - InputUserDeactivatedError (user deleted) - adding to stop list")
+        # Добавляем в processed чтобы больше не пытаться писать
+        try:
+            line = f"{uid} | (deleted_user)"
+            with open(PROCESSED_FILE, "a", encoding="utf-8") as f:
+                f.write(line + "\n")
+            log_info(f"{session_name}: added deleted user {uid} to stop list")
+        except Exception as write_err:
+            log_error(f"{session_name}: failed to add {uid} to stop list: {write_err}")
+        return True  # Возвращаем True чтобы выйти из chat session
     except Exception as e:
         log_error(f"{session_name}: reply failed in chat {uid}: {e!r}")
         return False
@@ -1759,19 +1820,27 @@ async def poll_client(client: TelegramClient, session_name: str):
             if already_processed(uid):
                 continue
             
+            # Получаем информацию о пользователе
+            user_entity = dialog.entity
+            user_username = user_entity.username if hasattr(user_entity, 'username') else None
+            
+            # Фильтр: пропускать пользователей без юзернейма
+            if IGNORE_NO_USERNAME:
+                if not user_username:
+                    log_info(f"[{session_name}] skip {uid} — no username")
+                    continue
+            
             # Фильтр по юзернейму (не отвечать ботам)
-            if IGNORE_BOT_USERNAMES:
-                user_entity = dialog.entity
-                if hasattr(user_entity, 'username') and user_entity.username:
-                    username_lower = user_entity.username.lower()
-                    is_bot_username = False
-                    for prefix in BOT_USERNAME_PREFIXES:
-                        if username_lower.startswith(prefix.lower()):
-                            log_info(f"[{session_name}] skip {uid} (@{user_entity.username}) — bot username (starts with '{prefix}')")
-                            is_bot_username = True
-                            break
-                    if is_bot_username:
-                        continue
+            if IGNORE_BOT_USERNAMES and user_username:
+                username_lower = user_username.lower()
+                is_bot_username = False
+                for prefix in BOT_USERNAME_PREFIXES:
+                    if username_lower.startswith(prefix.lower()):
+                        log_info(f"[{session_name}] skip {uid} (@{user_username}) — bot username (starts with '{prefix}')")
+                        is_bot_username = True
+                        break
+                if is_bot_username:
+                    continue
             
             # Проверяем количество непрочитанных
             unread = dialog.unread_count

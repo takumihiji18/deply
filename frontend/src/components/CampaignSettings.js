@@ -185,6 +185,20 @@ function CampaignSettings({ campaign, onUpdate }) {
         </div>
 
         <div className="form-group">
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.telegram_settings.ignore_no_username !== false}
+              onChange={(e) => handleTelegramChange('ignore_no_username', e.target.checked)}
+            />
+            {' '}Не отвечать пользователям без юзернейма
+          </label>
+          <small style={{color: '#718096', marginTop: '5px', display: 'block'}}>
+            Пропускать диалоги с пользователями, у которых не установлен username (часто это спам-боты или заброшенные аккаунты)
+          </small>
+        </div>
+
+        <div className="form-group">
           <label>Лимит пересылаемых сообщений</label>
           <input
             type="number"

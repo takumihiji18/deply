@@ -460,6 +460,8 @@ class CampaignRunner:
                 "TIMEZONE_OFFSET": campaign.telegram_settings.timezone_offset,
                 # Фильтр ботов (не отвечать на юзернеймы начинающиеся на i7/i8)
                 "IGNORE_BOT_USERNAMES": campaign.telegram_settings.ignore_bot_usernames if hasattr(campaign.telegram_settings, 'ignore_bot_usernames') else True,
+                # Не отвечать пользователям без юзернейма
+                "IGNORE_NO_USERNAME": campaign.telegram_settings.ignore_no_username if hasattr(campaign.telegram_settings, 'ignore_no_username') else True,
                 # Время отлёжки аккаунта при Peer Flood
                 "ACCOUNT_COOLDOWN_HOURS": campaign.telegram_settings.account_cooldown_hours if hasattr(campaign.telegram_settings, 'account_cooldown_hours') else 5,
                 # Follow-up настройки
