@@ -9,7 +9,7 @@ const getApiUrl = () => {
   
   // Если production (собранное приложение на Timeweb)
   if (process.env.NODE_ENV === 'production') {
-    return 'https://takumihiji18-deply-5672.twc1.net';
+    return 'https://takumihiji18-deply-f44c.twc1.net';
   }
   
   // Для разработки используем localhost
@@ -179,6 +179,11 @@ export const getProxyUsage = (campaignId) =>
 
 // WebSocket
 export const createWebSocket = () => {
+  // Если API_URL пустой (production на том же домене), используем текущий хост
+  if (!API_URL) {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return new WebSocket(`${protocol}//${window.location.host}/ws`);
+  }
   const wsUrl = API_URL.replace('http', 'ws');
   return new WebSocket(`${wsUrl}/ws`);
 };
