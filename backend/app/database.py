@@ -69,11 +69,18 @@ class Database:
             return campaigns
         
         for filename in os.listdir(self.campaigns_dir):
-            if filename.endswith('.json'):
-                campaign_id = filename[:-5]
-                campaign = await self.get_campaign(campaign_id)
-                if campaign:
-                    campaigns.append(campaign)
+            # Пропускаем файлы статусов диалогов и другие служебные файлы
+            if not filename.endswith('.json'):
+                continue
+            if '_dialog_statuses.json' in filename:
+                continue
+            if filename.startswith('_'):
+                continue
+                
+            campaign_id = filename[:-5]
+            campaign = await self.get_campaign(campaign_id)
+            if campaign:
+                campaigns.append(campaign)
         
         return sorted(campaigns, key=lambda c: c.created_at, reverse=True)
     

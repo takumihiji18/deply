@@ -80,7 +80,7 @@ def _save_dialog_statuses(campaign_id: str, statuses: dict):
         with open(statuses_file, 'w', encoding='utf-8') as f:
             json.dump(statuses, f, ensure_ascii=False, indent=2)
         print(f"Saved dialog statuses to {statuses_file}")
-    except Exception as e:
+            except Exception as e:
         print(f"Error saving dialog statuses: {e}")
 
 
