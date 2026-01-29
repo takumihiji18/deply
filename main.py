@@ -1374,8 +1374,9 @@ async def _reply_once_for_batch(
         log_info(f"{session_name}: using local history ({len(history)} messages)")
     
     # Формируем текст от пользователя (новые сообщения)
+    # ВАЖНО: НЕ добавляем timestamps - GPT воспринимает их как логи
     joined_user_text = "\n\n".join(
-        f"[{m.date.strftime('%Y-%m-%d %H:%M:%S')}] {m.text.strip()}" 
+        m.text.strip() 
         for m in batch if (m.text or "").strip()
     )
     
@@ -1409,6 +1410,14 @@ async def _reply_once_for_batch(
     
     # Добавляем новые сообщения от пользователя
     messages.append({"role": "user", "content": joined_user_text})
+    
+    # DEBUG: Логируем структуру сообщений для GPT
+    log_info(f"{session_name}: === GPT CONTEXT for {uid} ({len(messages)} messages) ===")
+    for i, msg in enumerate(messages):
+        role = msg.get('role', '?')
+        content = msg.get('content', '')[:100].replace('\n', '\\n')
+        log_info(f"  [{i}] {role}: {content}")
+    log_info(f"{session_name}: === END GPT CONTEXT ===")
     
     # Генерируем ответ
     reply = await openai_generate(messages)
@@ -1555,8 +1564,9 @@ async def _reply_once_for_batch_optimized(
         log_info(f"{session_name}: using local history ({len(history)} messages)")
     
     # Формируем текст от пользователя (новые сообщения)
+    # ВАЖНО: НЕ добавляем timestamps - GPT воспринимает их как логи
     joined_user_text = "\n\n".join(
-        f"[{m.date.strftime('%Y-%m-%d %H:%M:%S')}] {m.text.strip()}" 
+        m.text.strip() 
         for m in batch if (m.text or "").strip()
     )
     
@@ -1590,6 +1600,14 @@ async def _reply_once_for_batch_optimized(
     
     # Добавляем новые сообщения от пользователя
     messages.append({"role": "user", "content": joined_user_text})
+    
+    # DEBUG: Логируем структуру сообщений для GPT
+    log_info(f"{session_name}: === GPT CONTEXT for {uid} ({len(messages)} messages) ===")
+    for i, msg in enumerate(messages):
+        role = msg.get('role', '?')
+        content = msg.get('content', '')[:100].replace('\n', '\\n')
+        log_info(f"  [{i}] {role}: {content}")
+    log_info(f"{session_name}: === END GPT CONTEXT ===")
     
     # Генерируем ответ
     reply = await openai_generate(messages)
