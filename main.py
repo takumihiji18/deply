@@ -1203,11 +1203,19 @@ async def _fetch_chat_data(
     
     try:
         # ОДИН вызов API вместо 3-4!
+        log_info(f"{session_name}: fetching messages from chat_id={uid}")
         messages = await client.get_messages(uid, limit=limit)
         
         has_outgoing = False
         telegram_history = []
         incoming_messages = []
+        
+        # Фильтры для служебных сообщений (не должны попадать в контекст GPT)
+        SYSTEM_MESSAGE_PREFIXES = (
+            "✅ Пользователь",  # Уведомление о позитивном триггере
+            "❌ Пользователь",  # Уведомление о негативном триггере
+            "Диалог с ",        # Текстовый дамп диалога
+        )
         
         # Сообщения приходят от новых к старым
         for m in messages:
@@ -1215,21 +1223,36 @@ async def _fetch_chat_data(
                 has_outgoing = True
             
             text = (m.text or "").strip()
-            if text:
-                # Для истории GPT
-                role = "assistant" if m.out else "user"
-                telegram_history.append({
-                    "role": role,
-                    "content": text
-                })
-                
-                # Для входящих сообщений
-                if not m.out:
-                    incoming_messages.append(m)
+            if not text:
+                continue
+            
+            # ФИЛЬТР: Пропускаем служебные сообщения (уведомления о триггерах)
+            is_system_msg = False
+            for prefix in SYSTEM_MESSAGE_PREFIXES:
+                if text.startswith(prefix):
+                    is_system_msg = True
+                    log_info(f"{session_name}: filtering out system message: {text[:50]}...")
+                    break
+            
+            if is_system_msg:
+                continue
+            
+            # Для истории GPT
+            role = "assistant" if m.out else "user"
+            telegram_history.append({
+                "role": role,
+                "content": text
+            })
+            
+            # Для входящих сообщений
+            if not m.out:
+                incoming_messages.append(m)
         
         # Разворачиваем в хронологическом порядке
         telegram_history.reverse()
         incoming_messages.reverse()
+        
+        log_info(f"{session_name}: loaded {len(telegram_history)} messages for uid={uid}")
         
         return messages, has_outgoing, telegram_history, incoming_messages
     
@@ -1295,6 +1318,13 @@ async def _load_telegram_history(
     
     history = []
     
+    # Фильтры для служебных сообщений
+    SYSTEM_MESSAGE_PREFIXES = (
+        "✅ Пользователь",
+        "❌ Пользователь",
+        "Диалог с ",
+    )
+    
     try:
         messages = await client.get_messages(chat_id, limit=limit)
         messages = list(reversed(messages))
@@ -1303,6 +1333,12 @@ async def _load_telegram_history(
             text = (m.text or "").strip()
             if not text:
                 continue
+            
+            # Пропускаем служебные сообщения
+            is_system = any(text.startswith(p) for p in SYSTEM_MESSAGE_PREFIXES)
+            if is_system:
+                continue
+            
             role = "assistant" if m.out else "user"
             history.append({
                 "role": role,
@@ -1324,6 +1360,10 @@ async def _reply_once_for_batch(
     """
     Обрабатывает батч сообщений и отвечает один раз.
     Возвращает True если пользователь был помечен как processed, иначе False.
+    
+    ВАЖНО: Эта функция использует telegram_history как источник истины.
+    Сообщения из batch уже присутствуют в telegram_history, поэтому
+    НЕ нужно добавлять их повторно.
     """
     if not batch:
         return False
@@ -1364,55 +1404,30 @@ async def _reply_once_for_batch(
     if telegram_history:
         convo_save_full_history(session_name, uid, telegram_history, username)
     
-    # Используем Telegram историю как основную (там есть первое сообщение)
-    # Если Telegram история пустая - используем локальную
-    if telegram_history:
-        history = telegram_history
-        log_info(f"{session_name}: loaded {len(history)} messages from Telegram history for context")
-    else:
-        history = local_history
-        log_info(f"{session_name}: using local history ({len(history)} messages)")
+    # ============================================================
+    # ФОРМИРОВАНИЕ КОНТЕКСТА ДЛЯ GPT (_reply_once_for_batch)
+    # ============================================================
+    # Telegram история - источник истины и уже содержит ВСЕ сообщения
+    # включая новые из batch. НЕ добавляем batch повторно!
+    # ============================================================
     
-    # Формируем текст от пользователя (новые сообщения)
-    # ВАЖНО: НЕ добавляем timestamps - GPT воспринимает их как логи
-    joined_user_text = "\n\n".join(
-        m.text.strip() 
-        for m in batch if (m.text or "").strip()
-    )
-    
-    # Формируем запрос к GPT
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     
-    # ИСПРАВЛЕНИЕ: Правильно убираем дубликаты из истории
-    # batch содержит только входящие (user), а history содержит ВСЕ сообщения
-    # Нужно отрезать только USER сообщения с конца, а не все подряд
-    if telegram_history and len(batch) > 0:
-        # Собираем тексты сообщений из batch для сравнения
-        batch_texts = set((m.text or "").strip() for m in batch if (m.text or "").strip())
-        
-        # Идём с конца истории и удаляем только USER сообщения которые есть в batch
-        history_cleaned = []
-        removed_count = 0
-        
-        for msg in reversed(history):
-            # Если это USER сообщение и его текст есть в batch - пропускаем (дубликат)
-            if msg.get('role') == 'user' and msg.get('content', '').strip() in batch_texts:
-                if removed_count < len(batch):
-                    removed_count += 1
-                    continue  # Пропускаем дубликат
-            history_cleaned.append(msg)
-        
-        # Разворачиваем обратно в хронологическом порядке
-        history_cleaned.reverse()
-        messages.extend(history_cleaned)
+    if telegram_history:
+        # Telegram история уже содержит все сообщения
+        messages.extend(telegram_history)
+        log_info(f"{session_name}: context from telegram ({len(telegram_history)} msgs)")
     else:
-        messages.extend(history)
-    
-    # Добавляем новые сообщения от пользователя
-    messages.append({"role": "user", "content": joined_user_text})
+        # Нет telegram истории - используем локальную + добавляем batch
+        messages.extend(local_history)
+        for m in batch:
+            text = (m.text or "").strip()
+            if text:
+                messages.append({"role": "user", "content": text})
+        log_info(f"{session_name}: context from local ({len(local_history)}) + batch ({len(batch)})")
     
     # DEBUG: Логируем структуру сообщений для GPT
-    log_info(f"{session_name}: === GPT CONTEXT for {uid} ({len(messages)} messages) ===")
+    log_info(f"{session_name}: === GPT CONTEXT for {uid} ({len(messages)} msgs) ===")
     for i, msg in enumerate(messages):
         role = msg.get('role', '?')
         content = msg.get('content', '')[:100].replace('\n', '\\n')
@@ -1555,54 +1570,30 @@ async def _reply_once_for_batch_optimized(
     if telegram_history:
         convo_save_full_history(session_name, uid, telegram_history, username)
     
-    # Используем Telegram историю как основную
-    if telegram_history:
-        history = telegram_history
-        log_info(f"{session_name}: loaded {len(history)} messages from Telegram history for context")
-    else:
-        history = local_history
-        log_info(f"{session_name}: using local history ({len(history)} messages)")
+    # ============================================================
+    # ФОРМИРОВАНИЕ КОНТЕКСТА ДЛЯ GPT (_reply_once_for_batch_optimized)
+    # ============================================================
+    # Telegram история - источник истины и уже содержит ВСЕ сообщения
+    # включая новые из batch. НЕ добавляем batch повторно!
+    # ============================================================
     
-    # Формируем текст от пользователя (новые сообщения)
-    # ВАЖНО: НЕ добавляем timestamps - GPT воспринимает их как логи
-    joined_user_text = "\n\n".join(
-        m.text.strip() 
-        for m in batch if (m.text or "").strip()
-    )
-    
-    # Формируем запрос к GPT
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     
-    # ИСПРАВЛЕНИЕ: Правильно убираем дубликаты из истории
-    # batch содержит только входящие (user), а history содержит ВСЕ сообщения
-    # Нужно отрезать только USER сообщения с конца, а не все подряд
-    if telegram_history and len(batch) > 0:
-        # Собираем тексты сообщений из batch для сравнения
-        batch_texts = set((m.text or "").strip() for m in batch if (m.text or "").strip())
-        
-        # Идём с конца истории и удаляем только USER сообщения которые есть в batch
-        history_cleaned = []
-        removed_count = 0
-        
-        for msg in reversed(history):
-            # Если это USER сообщение и его текст есть в batch - пропускаем (дубликат)
-            if msg.get('role') == 'user' and msg.get('content', '').strip() in batch_texts:
-                if removed_count < len(batch):
-                    removed_count += 1
-                    continue  # Пропускаем дубликат
-            history_cleaned.append(msg)
-        
-        # Разворачиваем обратно в хронологическом порядке
-        history_cleaned.reverse()
-        messages.extend(history_cleaned)
+    if telegram_history:
+        # Telegram история уже содержит все сообщения
+        messages.extend(telegram_history)
+        log_info(f"{session_name}: context from telegram ({len(telegram_history)} msgs)")
     else:
-        messages.extend(history)
-    
-    # Добавляем новые сообщения от пользователя
-    messages.append({"role": "user", "content": joined_user_text})
+        # Нет telegram истории - используем локальную + добавляем batch
+        messages.extend(local_history)
+        for m in batch:
+            text = (m.text or "").strip()
+            if text:
+                messages.append({"role": "user", "content": text})
+        log_info(f"{session_name}: context from local ({len(local_history)}) + batch ({len(batch)})")
     
     # DEBUG: Логируем структуру сообщений для GPT
-    log_info(f"{session_name}: === GPT CONTEXT for {uid} ({len(messages)} messages) ===")
+    log_info(f"{session_name}: === GPT CONTEXT for {uid} ({len(messages)} msgs) ===")
     for i, msg in enumerate(messages):
         role = msg.get('role', '?')
         content = msg.get('content', '')[:100].replace('\n', '\\n')
