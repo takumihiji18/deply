@@ -2,6 +2,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import asyncio
+import os
 from typing import Dict, Set
 import json
 
@@ -147,6 +148,44 @@ async def root():
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
+
+
+@app.get("/backup")
+async def backup_all_data():
+    """
+    Возвращает ZIP-архив со всеми данными:
+    - campaigns_metadata/*.json  (настройки кампаний)
+    - data/sessions/*.session    (Telegram сессии)
+    - campaigns_runtime/         (рантайм данные кампаний)
+    """
+    import io
+    import zipfile
+    from fastapi.responses import StreamingResponse
+
+    current_file = os.path.abspath(__file__)
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for folder in ("campaigns_metadata", "data", "campaigns_runtime"):
+            folder_path = os.path.join(project_root, folder)
+            if not os.path.exists(folder_path):
+                continue
+            for root_dir, dirs, files in os.walk(folder_path):
+                for fname in files:
+                    full = os.path.join(root_dir, fname)
+                    arcname = os.path.relpath(full, project_root)
+                    try:
+                        zf.write(full, arcname)
+                    except Exception:
+                        pass
+
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=backup.zip"},
+    )
 
 
 if __name__ == "__main__":

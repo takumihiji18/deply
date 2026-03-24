@@ -3,6 +3,7 @@ import os
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import aiofiles
+import asyncio
 from .models import Campaign, CampaignStatus, TelegramSettings, OpenAISettings
 
 
@@ -17,34 +18,116 @@ class Database:
             campaigns_dir = os.path.join(project_root, campaigns_dir)
         
         self.campaigns_dir = campaigns_dir
+        self._file_locks: Dict[str, asyncio.Lock] = {}
         os.makedirs(campaigns_dir, exist_ok=True)
         print(f"Database initialized: campaigns_dir = {campaigns_dir}")
     
     def _campaign_path(self, campaign_id: str) -> str:
         return os.path.join(self.campaigns_dir, f"{campaign_id}.json")
+
+    def _get_lock(self, path: str) -> asyncio.Lock:
+        """Возвращает lock для конкретного файла кампании."""
+        lock = self._file_locks.get(path)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._file_locks[path] = lock
+        return lock
+
+    def _parse_campaign_json(self, raw_text: str, campaign_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Пытается распарсить JSON кампании.
+        Если файл содержит несколько JSON-объектов подряд (ошибка "Extra data"),
+        извлекает последний валидный объект как наиболее актуальное состояние.
+        """
+        text = (raw_text or "").strip()
+        if not text:
+            return None
+
+        try:
+            data = json.loads(text)
+            if isinstance(data, dict):
+                return data
+            return None
+        except json.JSONDecodeError as e:
+            decoder = json.JSONDecoder()
+            idx = 0
+            objects: List[Dict[str, Any]] = []
+
+            while idx < len(text):
+                while idx < len(text) and text[idx].isspace():
+                    idx += 1
+                if idx >= len(text):
+                    break
+
+                try:
+                    obj, end_idx = decoder.raw_decode(text, idx)
+                except json.JSONDecodeError:
+                    break
+
+                if isinstance(obj, dict):
+                    objects.append(obj)
+                idx = end_idx
+
+            if objects:
+                print(
+                    f"Warning: campaign {campaign_id} JSON contained extra data; "
+                    f"recovered {len(objects)} object(s), using the last one."
+                )
+                return objects[-1]
+
+            print(f"Error loading campaign {campaign_id}: {e}")
+            return None
+        except Exception as e:
+            print(f"Error loading campaign {campaign_id}: {e}")
+            return None
+
+    async def _atomic_write(self, path: str, content: str) -> None:
+        """Атомарно записывает файл через temp + os.replace."""
+        temp_path = f"{path}.tmp"
+        async with aiofiles.open(temp_path, 'w', encoding='utf-8') as f:
+            await f.write(content)
+        os.replace(temp_path, path)
     
     async def get_campaign(self, campaign_id: str) -> Optional[Campaign]:
         """Получить кампанию по ID"""
         path = self._campaign_path(campaign_id)
         if not os.path.exists(path):
             return None
-        
-        try:
-            async with aiofiles.open(path, 'r', encoding='utf-8') as f:
-                data = json.loads(await f.read())
-            return Campaign(**data)
-        except Exception as e:
-            print(f"Error loading campaign {campaign_id}: {e}")
-            return None
+
+        lock = self._get_lock(path)
+        async with lock:
+            try:
+                async with aiofiles.open(path, 'r', encoding='utf-8') as f:
+                    raw = await f.read()
+
+                data = self._parse_campaign_json(raw, campaign_id)
+                if data is None:
+                    return None
+
+                # Если файл был "склеен", нормализуем его обратно в валидный JSON.
+                normalized = json.dumps(data, ensure_ascii=False, indent=2)
+                if raw.strip() != normalized.strip():
+                    try:
+                        await self._atomic_write(path, normalized)
+                    except Exception as repair_err:
+                        print(f"Warning: failed to normalize campaign {campaign_id}: {repair_err}")
+
+                return Campaign(**data)
+            except Exception as e:
+                print(f"Error loading campaign {campaign_id}: {e}")
+                return None
     
     async def save_campaign(self, campaign: Campaign) -> bool:
         """Сохранить кампанию"""
+        path = self._campaign_path(campaign.id)
+        lock = self._get_lock(path)
+
         try:
-            path = self._campaign_path(campaign.id)
             campaign.updated_at = datetime.now()
-            
-            async with aiofiles.open(path, 'w', encoding='utf-8') as f:
-                await f.write(campaign.model_dump_json(indent=2))
+            payload = campaign.model_dump_json(indent=2)
+
+            async with lock:
+                await self._atomic_write(path, payload)
             return True
         except Exception as e:
             print(f"Error saving campaign {campaign.id}: {e}")
