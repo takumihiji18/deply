@@ -1,0 +1,20 @@
+{
+  "name": "Telegram Auto-Responder",
+  "install": "bash .cursor/install.sh",
+  "terminals": [
+    {
+      "name": "backend",
+      "command": "cd backend && ../.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000",
+      "description": "FastAPI backend API server on port 8000"
+    },
+    {
+      "name": "frontend",
+      "command": "cd frontend && BROWSER=none HOST=0.0.0.0 PORT=3000 npm start",
+      "description": "React development server on port 3000 (proxies API calls to the backend)"
+    }
+  ],
+  "ports": [
+    { "name": "backend", "port": 8000 },
+    { "name": "frontend", "port": 3000 }
+  ]
+}
